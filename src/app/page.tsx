@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // Added useEffect
 import Header from '@/components/Header';
 import SwipeableProductView from '@/components/SwipeableProductView';
 import ProductGrid from '@/components/ProductGrid';
@@ -11,6 +11,11 @@ import { LayoutGrid, SquareStack } from 'lucide-react';
 
 export default function HomePage() {
   const [viewMode, setViewMode] = useState<'swipe' | 'grid'>('grid');
+  const [currentYear, setCurrentYear] = useState<number | null>(null);
+
+  useEffect(() => {
+    setCurrentYear(new Date().getFullYear());
+  }, []);
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -30,14 +35,17 @@ export default function HomePage() {
           </TabsContent>
           <TabsContent value="swipe" className="focus-visible:ring-0 focus-visible:ring-offset-0">
             <div className="flex justify-center">
-              {/* Ensure SwipeableProductView also uses the new ProductCard internally if it's not already */}
               <SwipeableProductView products={mockProducts} />
             </div>
           </TabsContent>
         </Tabs>
       </main>
       <footer className="bg-muted text-center py-4 text-sm text-muted-foreground border-t">
-        <p>&copy; {new Date().getFullYear()} Good2Go Express. All rights reserved.</p>
+        {currentYear !== null ? (
+          <p>&copy; {currentYear} Good2Go Express. All rights reserved.</p>
+        ) : (
+          <p>&copy; Good2Go Express. All rights reserved.</p> // Fallback or loading state for year
+        )}
       </footer>
     </div>
   );

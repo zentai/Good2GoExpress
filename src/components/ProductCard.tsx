@@ -8,95 +8,87 @@ import { Button } from '@/components/ui/button';
 import { Heart, ShoppingCart } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast'; // Import useToast
+import { useToast } from '@/hooks/use-toast';
 
 interface ProductCardProps {
   product: Product;
-  // Removed layout prop as the new design is more unified
 }
 
 const ProductCard = ({ product }: ProductCardProps) => {
   const [isFavorite, setIsFavorite] = useState(false);
   const [clientMounted, setClientMounted] = useState(false);
   const router = useRouter();
-  const { toast } = useToast(); // Initialize useToast
+  const { toast } = useToast();
 
   useEffect(() => {
     setClientMounted(true);
   }, []);
 
   const handleFavoriteToggle = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card click
+    e.stopPropagation();
     e.preventDefault();
     setIsFavorite(!isFavorite);
-    // Add to favorites logic (e.g., API call, local storage)
     toast({
       title: isFavorite ? `💔 Removed "${product.name}" from favorites` : `❤️ Added "${product.name}" to favorites`,
-      duration: 3000, // Short duration for favorite toggle
+      duration: 3000,
     });
   };
 
   const handleCardClick = () => {
-    // Navigate to product details or checkout page
     router.push(`/checkout?productId=${product.id}`);
   };
 
   const handleAddToCart = (e: React.MouseEvent) => {
-    e.stopPropagation(); // IMPORTANT: Prevent card click event
+    e.stopPropagation();
     e.preventDefault();
     
-    // Simulate adding to cart logic
     console.log(`Added ${product.name} to cart`);
 
-    // Show toast notification
     const { dismiss } = toast({
       title: `✅ 已加入「${product.name}」x1`,
-      // No description needed as per new requirement
+      duration: 5000,
     });
-
-    // Dismiss toast after 5 seconds
-    setTimeout(() => {
-      dismiss();
-    }, 5000);
   };
 
-  // Skeleton loader for when component is not yet mounted on client
   if (!clientMounted) {
+    // Updated skeleton to reflect new structure and target height
     return (
-      <div className="group rounded-lg overflow-hidden shadow-md bg-card flex flex-col animate-pulse aspect-square">
-        <div className="w-full h-full bg-muted"></div>
-        {/* Simplified skeleton for the new layout */}
+      <div className="group rounded-lg overflow-hidden shadow-md bg-card animate-pulse w-full h-[244px] flex flex-col">
+        <div className="h-44 bg-muted rounded-t-lg"></div> {/* Image placeholder */}
+        <div className="p-3 space-y-2 flex-grow">
+          <div className="h-4 bg-muted rounded w-3/4"></div> {/* Name placeholder */}
+          <div className="h-4 bg-muted rounded w-1/2"></div> {/* Price placeholder */}
+        </div>
       </div>
     );
   }
 
   return (
     <div
-      className="group rounded-lg overflow-hidden shadow-md hover:shadow-xl active:shadow-lg active:bg-secondary/30 transition-all duration-300 bg-card flex flex-col cursor-pointer h-full"
+      className="group rounded-lg overflow-hidden shadow-md hover:shadow-xl active:shadow-lg active:bg-secondary/30 transition-all duration-300 bg-card flex flex-col cursor-pointer"
       onClick={handleCardClick}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleCardClick()}
       aria-label={`View details for ${product.name}`}
+      style={{ height: '244px' }} // Enforce total card height
     >
-      <div className="relative aspect-square w-full overflow-hidden bg-muted">
-        {/* Badge */}
+      <div className="relative aspect-square w-full overflow-hidden bg-muted h-44"> {/* Image container with fixed height */}
         {product.badge && (
           <div
             className={cn(
-              "absolute top-2 left-2 z-20 px-2 py-0.5 rounded-full text-xs font-semibold shadow-md", // Enhanced shadow for badge
+              "absolute top-2 left-2 z-20 px-2 py-0.5 rounded-full text-xs font-semibold shadow-md",
               product.badge.type === 'hot' && "bg-red-500 text-white",
-              product.badge.type === 'limited' && "bg-yellow-500 text-neutral-800", // Darker yellow
+              product.badge.type === 'limited' && "bg-yellow-500 text-neutral-800",
               product.badge.type === 'signature' && "bg-primary text-primary-foreground",
               product.badge.type === 'new' && "bg-blue-500 text-white",
-              product.badge.type === 'custom' && "bg-slate-600 text-white" // Custom badge style example
+              product.badge.type === 'custom' && "bg-slate-600 text-white"
             )}
           >
             {product.badge.text}
           </div>
         )}
 
-        {/* Favorite Button */}
         <Button
           variant="ghost"
           size="icon"
@@ -107,24 +99,16 @@ const ProductCard = ({ product }: ProductCardProps) => {
           <Heart className={cn("h-5 w-5", isFavorite ? "fill-red-500 text-red-500" : "text-white")} />
         </Button>
 
-        {/* Image */}
         <Image
           src={product.imageUrl}
           alt={product.name}
           fill
-          sizes="(max-width: 374px) 100vw, (max-width: 599px) 50vw, 33vw" // Keep existing sizes, aspect ratio handles the rest
+          sizes="(max-width: 374px) 100vw, (max-width: 599px) 50vw, 33vw"
           className="object-cover group-hover:scale-105 transition-transform duration-300 ease-in-out"
           data-ai-hint={product.dataAiHint}
           priority={product.id === '1' || product.id === '2'} 
         />
         
-        {/* Name and Price Overlay */}
-        <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/70 via-black/50 to-transparent z-10 pointer-events-none">
-          <h3 className="text-base font-bold text-white truncate leading-tight" title={product.name}>{product.name}</h3>
-          <p className="text-sm font-semibold text-primary-foreground/90">RM {product.price.toFixed(2)}</p>
-        </div>
-
-        {/* Add to Cart Button - Floated on Image */}
         <Button
             variant="default"
             size="icon"
@@ -136,8 +120,11 @@ const ProductCard = ({ product }: ProductCardProps) => {
         </Button>
       </div>
       
-      {/* Content area below image is now removed to make image larger */}
-      {/* No description text, no separate button area below image */}
+      {/* Name and Price section below the image */}
+      <div className="p-3 flex-grow flex flex-col justify-center"> {/* Use p-3 for spacing, flex-grow allows this section to take remaining space */}
+        <h3 className="text-sm font-semibold text-foreground truncate leading-tight" title={product.name}>{product.name}</h3>
+        <p className="text-base font-bold text-primary mt-1">RM {product.price.toFixed(2)}</p>
+      </div>
     </div>
   );
 };
