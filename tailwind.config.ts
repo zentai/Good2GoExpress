@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -9,6 +10,10 @@ export default {
   ],
   theme: {
   	extend: {
+      screens: {
+        'xs': '375px', // For 2-column layout
+        'smd': '600px', // For 3-column layout
+      },
       fontFamily: {
         sans: ["var(--font-poppins)", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"],
       },

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Suspense } from 'react';
@@ -5,7 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, MessageSquare, Home } from 'lucide-react'; // MessageSquare for WhatsApp
+import { CheckCircle, MessageSquare, Home, ShoppingBag } from 'lucide-react'; // MessageSquare for WhatsApp
 
 // Define a placeholder phone number for WhatsApp
 const WHATSAPP_PHONE_NUMBER = '1234567890'; // Replace with actual number or make configurable
@@ -19,7 +20,7 @@ function OrderConfirmationContent() {
 
   const formattedPickupTime = pickupTime === 'asap' ? 'as soon as possible' : `in ${pickupTime.replace('hr', ' hour').replace('min', ' minutes')}`;
 
-  const orderMessage = `Hi! I've placed an order for ${productName} (Price: $${price}). Pickup: ${formattedPickupTime}. Order from Good2Go Express.`;
+  const orderMessage = `Hi! I've placed an order for ${productName} (Price: RM ${price}). Pickup: ${formattedPickupTime}. Order from Good2Go Express.`;
   const whatsappUrl = `https://wa.me/${WHATSAPP_PHONE_NUMBER}?text=${encodeURIComponent(orderMessage)}`;
 
   return (
@@ -38,7 +39,7 @@ function OrderConfirmationContent() {
           <p className="text-base">
             It will be ready for pickup <span className="font-semibold text-foreground">{formattedPickupTime}</span>.
           </p>
-          <p className="text-xl font-bold text-accent mt-1">Total: ${parseFloat(price).toFixed(2)}</p>
+          <p className="text-xl font-bold text-accent mt-1">Total: RM {parseFloat(price).toFixed(2)}</p>
         </div>
         
         <p className="text-sm text-muted-foreground">
@@ -72,7 +73,7 @@ export default function OrderConfirmationPage() {
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
       <main className="flex-grow container mx-auto px-4 py-8 flex items-center justify-center">
-      <Suspense fallback={<div className="text-center py-10 text-lg">Loading confirmation...</div>}>
+      <Suspense fallback={<div className="flex flex-col justify-center items-center h-[calc(100vh-150px)]"><ShoppingBag className="h-12 w-12 animate-spin text-primary" /><p className="ml-4 text-lg">Loading confirmation...</p></div>}>
         <OrderConfirmationContent />
         </Suspense>
       </main>

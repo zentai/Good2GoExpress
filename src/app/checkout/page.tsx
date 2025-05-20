@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Suspense } from 'react';
@@ -55,7 +56,7 @@ function CheckoutPageContent() {
 
   if (product === undefined) {
     return (
-      <div className="flex justify-center items-center h-[calc(100vh-150px)]">
+      <div className="flex flex-col justify-center items-center h-[calc(100vh-150px)]">
         <ShoppingBag className="h-12 w-12 animate-spin text-primary" />
         <p className="ml-4 text-lg">Loading product details...</p>
       </div>
@@ -85,7 +86,7 @@ function CheckoutPageContent() {
           </div>
           <div>
             <h3 className="text-lg font-semibold">{product.name}</h3>
-            <p className="text-xl font-bold text-accent">${product.price.toFixed(2)}</p>
+            <p className="text-xl font-bold text-accent">RM {product.price.toFixed(2)}</p>
           </div>
         </div>
 
@@ -107,7 +108,7 @@ function CheckoutPageContent() {
             </Select>
           </div>
 
-          {/* Spacer to push button to bottom on mobile view, might need CSS for fixed bottom effect */}
+          {/* Spacer to push button to bottom on mobile view, might not need CSS for fixed bottom effect */}
           <div className="pt-8"> 
             <Button type="submit" className="w-full h-14 text-lg bg-accent hover:bg-accent/90 text-accent-foreground rounded-lg shadow-md" disabled={isSubmitting}>
               {isSubmitting ? (
@@ -133,7 +134,7 @@ export default function CheckoutPage() {
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
       <main className="flex-grow container mx-auto px-4 py-8 flex items-center justify-center">
-        <Suspense fallback={<div className="text-center py-10 text-lg">Loading checkout...</div>}>
+        <Suspense fallback={<div className="flex flex-col justify-center items-center h-[calc(100vh-150px)]"><ShoppingBag className="h-12 w-12 animate-spin text-primary" /><p className="ml-4 text-lg">Loading checkout...</p></div>}>
           <CheckoutPageContent />
         </Suspense>
       </main>

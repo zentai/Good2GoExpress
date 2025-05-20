@@ -1,3 +1,9 @@
+
+export interface ProductBadge {
+  text: string;
+  type: 'hot' | 'limited' | 'signature' | 'new' | 'custom'; // Added 'custom' for flexibility
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -6,6 +12,7 @@ export interface Product {
   imageUrl: string;
   category: string;
   dataAiHint: string;
+  badge?: ProductBadge; // Optional badge
 }
 
 export interface OrderItem {

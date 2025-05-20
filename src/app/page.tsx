@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -6,7 +7,7 @@ import SwipeableProductView from '@/components/SwipeableProductView';
 import ProductGrid from '@/components/ProductGrid';
 import { mockProducts } from '@/data/products';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LayoutGrid, SquareStack } from 'lucide-react'; // SquareStack can represent swipe view
+import { LayoutGrid, SquareStack } from 'lucide-react'; 
 
 export default function HomePage() {
   const [viewMode, setViewMode] = useState<'swipe' | 'grid'>('grid');
@@ -14,9 +15,9 @@ export default function HomePage() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
-      <main className="flex-grow container mx-auto px-0 sm:px-4 py-4">
+      <main className="flex-grow container mx-auto px-0 xs:px-2 sm:px-4 py-4">
         <Tabs defaultValue="grid" onValueChange={(value) => setViewMode(value as 'swipe' | 'grid')} className="w-full mb-6">
-          <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
+          <TabsList className="grid w-full max-w-xs mx-auto grid-cols-2">
             <TabsTrigger value="grid" className="flex items-center gap-2">
               <LayoutGrid className="h-5 w-5" /> Grid View
             </TabsTrigger>
@@ -24,17 +25,18 @@ export default function HomePage() {
               <SquareStack className="h-5 w-5" /> Swipe View
             </TabsTrigger>
           </TabsList>
-          <TabsContent value="grid">
+          <TabsContent value="grid" className="focus-visible:ring-0 focus-visible:ring-offset-0">
             <ProductGrid products={mockProducts} />
           </TabsContent>
-          <TabsContent value="swipe">
+          <TabsContent value="swipe" className="focus-visible:ring-0 focus-visible:ring-offset-0">
             <div className="flex justify-center">
+              {/* Ensure SwipeableProductView also uses the new ProductCard internally if it's not already */}
               <SwipeableProductView products={mockProducts} />
             </div>
           </TabsContent>
         </Tabs>
       </main>
-      <footer className="bg-gray-100 dark:bg-gray-800 text-center py-4 text-sm text-muted-foreground">
+      <footer className="bg-muted text-center py-4 text-sm text-muted-foreground border-t">
         <p>&copy; {new Date().getFullYear()} Good2Go Express. All rights reserved.</p>
       </footer>
     </div>
