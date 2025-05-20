@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 
 interface ProductCardProps {
   product: Product;
+  layout?: 'grid' | 'swipe'; // layout prop is optional and might not be used if swipe view is different
 }
 
 const ProductCard = ({ product }: ProductCardProps) => {
@@ -25,7 +26,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
   }, []);
 
   const handleFavoriteToggle = (e: React.MouseEvent) => {
-    e.stopPropagation();
+    e.stopPropagation(); // Prevent card click when clicking button
     e.preventDefault();
     setIsFavorite(!isFavorite);
     toast({
@@ -35,19 +36,25 @@ const ProductCard = ({ product }: ProductCardProps) => {
   };
 
   const handleCardClick = () => {
+    // Navigate to product details or checkout
     router.push(`/checkout?productId=${product.id}`);
   };
 
   const handleAddToCart = (e: React.MouseEvent) => {
-    e.stopPropagation();
+    e.stopPropagation(); // Prevent card click when clicking button
     e.preventDefault();
     
+    // Simulate adding to cart logic
     console.log(`Added ${product.name} to cart`);
 
+    // Show toast notification
     const { dismiss } = toast({
       title: `✅ 已加入「${product.name}」x1`,
-      duration: 5000,
+      duration: 5000, // Toast disappears after 5 seconds
     });
+
+    // Optionally, provide some visual feedback on the button itself
+    // e.g., brief change of icon or subtle animation if desired
   };
 
   if (!clientMounted) {
@@ -73,7 +80,8 @@ const ProductCard = ({ product }: ProductCardProps) => {
       aria-label={`View details for ${product.name}`}
       style={{ height: '244px' }} // Enforce total card height
     >
-      <div className="relative aspect-square w-full overflow-hidden bg-muted h-44"> {/* Image container with fixed height */}
+      {/* Image container with fixed height */}
+      <div className="relative aspect-square w-full overflow-hidden bg-muted h-44"> 
         {product.badge && (
           <div
             className={cn(
@@ -82,7 +90,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
               product.badge.type === 'limited' && "bg-yellow-500 text-neutral-800",
               product.badge.type === 'signature' && "bg-primary text-primary-foreground",
               product.badge.type === 'new' && "bg-blue-500 text-white",
-              product.badge.type === 'custom' && "bg-slate-600 text-white"
+              product.badge.type === 'custom' && "bg-slate-600 text-white" // Example for custom
             )}
           >
             {product.badge.text}
@@ -102,15 +110,16 @@ const ProductCard = ({ product }: ProductCardProps) => {
         <Image
           src={product.imageUrl}
           alt={product.name}
-          fill
-          sizes="(max-width: 374px) 100vw, (max-width: 599px) 50vw, 33vw"
+          fill // Fill the 176px height container, aspect ratio maintained by parent
+          sizes="(max-width: 374px) 100vw, (max-width: 599px) 50vw, 33vw" // Adjusted sizes
           className="object-cover group-hover:scale-105 transition-transform duration-300 ease-in-out"
           data-ai-hint={product.dataAiHint}
-          priority={product.id === '1' || product.id === '2'} 
+          priority={product.id === '1' || product.id === '2'} // Prioritize loading for first few images
         />
         
+        {/* Add to Cart Button - Floats over image bottom-right */}
         <Button
-            variant="default"
+            variant="default" // Default variant uses primary color, can be changed to accent
             size="icon"
             className="absolute bottom-3 right-3 z-20 bg-accent hover:bg-accent/90 text-accent-foreground rounded-full h-10 w-10 shadow-lg hover:scale-110 active:scale-95 transition-all duration-200"
             onClick={handleAddToCart}

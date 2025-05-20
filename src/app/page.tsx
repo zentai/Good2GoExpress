@@ -14,8 +14,9 @@ export default function HomePage() {
   const [currentYear, setCurrentYear] = useState<number | null>(null);
 
   useEffect(() => {
+    // Ensure this runs only on the client after hydration
     setCurrentYear(new Date().getFullYear());
-  }, []);
+  }, []); // Empty dependency array ensures this runs once on mount
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
