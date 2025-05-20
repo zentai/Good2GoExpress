@@ -1,3 +1,4 @@
+
 "use client"
 
 // Inspired by react-hot-toast library
@@ -8,14 +9,15 @@ import type {
   ToastProps,
 } from "@/components/ui/toast"
 
-const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+const TOAST_LIMIT = 3 // Increased limit to allow multiple item add notifications
+const TOAST_REMOVE_DELAY = 1000000 // Default long delay, dismissal handled by duration or manually
 
 type ToasterToast = ToastProps & {
   id: string
   title?: React.ReactNode
   description?: React.ReactNode
   action?: ToastActionElement
+  duration?: number // Added duration prop
 }
 
 const actionTypes = {
@@ -58,18 +60,20 @@ interface State {
 
 const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
 
-const addToRemoveQueue = (toastId: string) => {
+const addToRemoveQueue = (toastId: string, duration?: number) => {
   if (toastTimeouts.has(toastId)) {
-    return
+    clearTimeout(toastTimeouts.get(toastId)) // Clear existing timeout if any
   }
+
+  const removeDelay = duration ?? TOAST_REMOVE_DELAY;
 
   const timeout = setTimeout(() => {
     toastTimeouts.delete(toastId)
     dispatch({
-      type: "REMOVE_TOAST",
+      type: "REMOVE_TOAST", // Changed to REMOVE_TOAST to actually remove it from DOM after timeout
       toastId: toastId,
     })
-  }, TOAST_REMOVE_DELAY)
+  }, removeDelay)
 
   toastTimeouts.set(toastId, timeout)
 }
@@ -77,6 +81,10 @@ const addToRemoveQueue = (toastId: string) => {
 export const reducer = (state: State, action: Action): State => {
   switch (action.type) {
     case "ADD_TOAST":
+      // If toast has a duration, set it up for removal
+      if (action.toast.duration) {
+        addToRemoveQueue(action.toast.id, action.toast.duration);
+      }
       return {
         ...state,
         toasts: [action.toast, ...state.toasts].slice(0, TOAST_LIMIT),
@@ -93,13 +101,18 @@ export const reducer = (state: State, action: Action): State => {
     case "DISMISS_TOAST": {
       const { toastId } = action
 
-      // ! Side effects ! - This could be extracted into a dismissToast() action,
-      // but I'll keep it here for simplicity
+      // Side effect: Set up for removal if not already handled by duration
+      // This allows manual dismiss to also trigger removal
       if (toastId) {
-        addToRemoveQueue(toastId)
+        const toastToDismiss = state.toasts.find(t => t.id === toastId);
+        if (toastToDismiss && !toastToDismiss.duration) { // Only if no auto-duration
+           addToRemoveQueue(toastId); // Use default long delay or a shorter one if needed
+        }
       } else {
         state.toasts.forEach((toast) => {
-          addToRemoveQueue(toast.id)
+          if (!toast.duration) {
+            addToRemoveQueue(toast.id);
+          }
         })
       }
 
@@ -109,7 +122,7 @@ export const reducer = (state: State, action: Action): State => {
           t.id === toastId || toastId === undefined
             ? {
                 ...t,
-                open: false,
+                open: false, // Trigger close animation
               }
             : t
         ),
@@ -140,18 +153,21 @@ function dispatch(action: Action) {
   })
 }
 
-type Toast = Omit<ToasterToast, "id">
+type ToastOptions = Omit<ToasterToast, "id">;
 
-function toast({ ...props }: Toast) {
-  const id = genId()
+function toast(props: ToastOptions) {
+  const id = genId();
 
-  const update = (props: ToasterToast) =>
+  const update = (updateProps: Partial<ToasterToast>) =>
     dispatch({
       type: "UPDATE_TOAST",
-      toast: { ...props, id },
-    })
-  const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
+      toast: { ...updateProps, id },
+    });
 
+  const dismiss = () => {
+    dispatch({ type: "DISMISS_TOAST", toastId: id });
+  }
+  
   dispatch({
     type: "ADD_TOAST",
     toast: {
@@ -159,17 +175,26 @@ function toast({ ...props }: Toast) {
       id,
       open: true,
       onOpenChange: (open) => {
-        if (!open) dismiss()
+        if (!open) {
+          // When the toast's open state changes to false (e.g. via swipe or close button)
+          // We ensure it's queued for removal from the DOM.
+          // If it had a duration, it's already in queue. If not, add it now.
+          const currentToast = memoryState.toasts.find(t => t.id === id);
+          if (currentToast && !currentToast.duration) {
+            addToRemoveQueue(id, 500); // Short delay for animation before removing
+          }
+        }
       },
     },
-  })
+  });
 
   return {
     id: id,
     dismiss,
     update,
-  }
+  };
 }
+
 
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState)
