@@ -20,35 +20,24 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('fetch', (event) => {
   event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Cache hit - return response
-        if (response) {
-          return response;
-        }
-        return fetch(event.request).then(
-          (response) => {
-            // Check if we received a valid response
-            if(!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
+    fetch(event.request)
+      .then((networkResponse) => {
+        // 如果網路請求成功，將回應存入快取並返回回應
+        return caches.open(CACHE_NAME)
+          .then((cache) => {
+            // 重要：檢查回應是否有效，例如狀態碼為 200
+            // 並且回應類型不是 opaque（不透明），因為不透明回應無法被快取
+            if (networkResponse.ok && networkResponse.type === 'basic') {
+              cache.put(event.request, networkResponse.clone());
             }
-
-            // IMPORTANT: Clone the response. A response is a stream
-            // and because we want the browser to consume the response
-            // as well as the cache consuming the response, we need
-            // to clone it so we have two streams.
-            const responseToCache = response.clone();
-
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                cache.put(event.request, responseToCache);
-              });
-
-            return response;
-          }
-        );
+            return networkResponse;
+          });
       })
-    );
+      .catch(() => {
+        // 如果網路請求失敗，則從快取中獲取資源
+        return caches.match(event.request);
+      })
+  );
 });
 
 self.addEventListener('activate', (event) => {

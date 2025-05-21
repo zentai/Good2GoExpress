@@ -78,7 +78,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
       tabIndex={0}
       onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleCardClick()}
       aria-label={`View details for ${product.name}`}
-      style={{ height: '388px' }} // Enforce total card height
+      style={{ height: '298px' }} // Enforce total card height
     >
       {/* Image container with fixed height */}
       <div className="relative aspect-square w-full overflow-hidden bg-muted h-44"> 
