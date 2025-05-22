@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { CheckCircle, MessageSquare, Home, ShoppingBag } from 'lucide-react'; // MessageSquare for WhatsApp
 
 // Define a placeholder phone number for WhatsApp
-const WHATSAPP_PHONE_NUMBER = '1234567890'; // Replace with actual number or make configurable
+const WHATSAPP_PHONE_NUMBER = '+6596100333'; // Replace with actual number or make configurable
 
 function OrderConfirmationContent() {
   const router = useRouter();
