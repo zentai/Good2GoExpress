@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
 // Define WhatsApp number here or import from a config file
-const WHATSAPP_PHONE_NUMBER = '60123456789'; // Example: Malaysian number. Replace with actual.
+const WHATSAPP_PHONE_NUMBER = '+60187693136'; // Example: Malaysian number. Replace with actual.
 
 interface CartItemDisplayProps {
   item: OrderItem;
