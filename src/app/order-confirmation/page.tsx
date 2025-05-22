@@ -1,27 +1,40 @@
 
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, MessageSquare, Home, ShoppingBag } from 'lucide-react'; // MessageSquare for WhatsApp
+import { CheckCircle, MessageSquare, Home, ShoppingBag } from 'lucide-react';
 
-// Define a placeholder phone number for WhatsApp
-const WHATSAPP_PHONE_NUMBER = '+60187693136'; // Replace with actual number or make configurable
+// This page might become a more generic "Order Submitted" page if WhatsApp is optional.
+// For now, keeping the WhatsApp chat button, but its relevance depends on the checkout flow.
+
+const WHATSAPP_PHONE_NUMBER = '+60187693136'; // Ensure this is defined or imported
 
 function OrderConfirmationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const productName = searchParams.get('productName') || 'Your Item';
-  const price = searchParams.get('price') || '0.00';
-  const pickupTime = searchParams.get('pickupTime') || 'asap';
+  
+  // These params might not be relevant if navigating here after Firebase submission without WhatsApp
+  const productName = searchParams.get('productName') || 'Your Order'; 
+  const price = searchParams.get('price') || 'N/A'; // Default if not passed
+  const pickupTime = searchParams.get('pickupTime') || 'your selected time';
 
-  const formattedPickupTime = pickupTime === 'asap' ? 'as soon as possible' : `in ${pickupTime.replace('hr', ' hour').replace('min', ' minutes')}`;
+  const formattedPickupTime = pickupTime; // Simplified as actual time is now passed or not needed
 
-  const orderMessage = `Hi! I've placed an order for ${productName} (Price: RM ${price}). Pickup: ${formattedPickupTime}. Order from Good2Go Express.`;
+  // Construct a generic message if order details are not passed via params
+  const orderMessage = `Hi! I have a question about my recent order placed via Good2Go Express.`;
   const whatsappUrl = `https://wa.me/${WHATSAPP_PHONE_NUMBER}?text=${encodeURIComponent(orderMessage)}`;
+
+  useEffect(() => {
+    // Clear cart from localStorage if the user lands here.
+    // This is a fallback, should ideally be cleared upon successful submission.
+    if (typeof window !== 'undefined') {
+        localStorage.removeItem('good2go_cart');
+    }
+  }, []);
 
   return (
     <Card className="w-full max-w-md mx-auto shadow-xl text-center">
@@ -29,21 +42,26 @@ function OrderConfirmationContent() {
         <div className="mx-auto bg-primary/10 p-3 rounded-full w-fit mb-4">
           <CheckCircle className="h-16 w-16 text-primary" />
         </div>
-        <CardTitle className="text-3xl font-bold text-primary">Order Confirmed!</CardTitle>
+        <CardTitle className="text-3xl font-bold text-primary">Order Submitted!</CardTitle>
         <CardDescription className="text-lg text-muted-foreground">
-          Your order for <span className="font-semibold text-foreground">{productName}</span> is confirmed.
+          Your order has been successfully submitted.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="p-4 border rounded-lg bg-secondary/30">
           <p className="text-base">
-            It will be ready for pickup <span className="font-semibold text-foreground">{formattedPickupTime}</span>.
+            We've received your order. It will be ready for pickup at {formattedPickupTime}.
           </p>
-          <p className="text-xl font-bold text-accent mt-1">Total: RM {parseFloat(price).toFixed(2)}</p>
+          {price !== 'N/A' && (
+            <p className="text-xl font-bold text-accent mt-1">Total: RM {parseFloat(price).toFixed(2)}</p>
+          )}
+           <p className="text-sm text-muted-foreground mt-2">
+            You will receive a confirmation shortly. If you chose to send via WhatsApp, please ensure the message was sent.
+          </p>
         </div>
         
         <p className="text-sm text-muted-foreground">
-          You can also confirm your order details or ask questions via WhatsApp.
+          For any urgent queries, you can contact us on WhatsApp.
         </p>
 
         <Button 
@@ -73,7 +91,12 @@ export default function OrderConfirmationPage() {
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
       <main className="flex-grow container mx-auto px-4 py-8 flex items-center justify-center">
-      <Suspense fallback={<div className="flex flex-col justify-center items-center h-[calc(100vh-150px)]"><ShoppingBag className="h-12 w-12 animate-spin text-primary" /><p className="ml-4 text-lg">Loading confirmation...</p></div>}>
+      <Suspense fallback={
+        <div className="flex flex-col justify-center items-center h-[calc(100vh-150px)]">
+            <ShoppingBag className="h-12 w-12 animate-spin text-primary" />
+            <p className="ml-4 text-lg">Loading confirmation...</p>
+        </div>
+      }>
         <OrderConfirmationContent />
         </Suspense>
       </main>
