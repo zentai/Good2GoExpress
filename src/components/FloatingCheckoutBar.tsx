@@ -22,7 +22,7 @@ export default function FloatingCheckoutBar({ cartItems }: FloatingCheckoutBarPr
   const handleCheckoutClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (!hasItems) {
       e.preventDefault(); // Prevent navigation if cart is empty
-      alert("您的购物车是空的，请先添加商品！"); // Simple alert for now, can be replaced with a toast
+      alert("Your cart is empty. Please add items first!"); // Simple alert for now, can be replaced with a toast
     }
     // If hasItems, the Next.js Link component will handle navigation to checkoutHref
   };
@@ -34,14 +34,14 @@ export default function FloatingCheckoutBar({ cartItems }: FloatingCheckoutBarPr
           {hasItems ? (
             <>
               <p className="font-semibold text-foreground">
-                已加购 {itemCount} {itemCount === 1 ? '项' : '项'}
+                {itemCount} {itemCount === 1 ? 'item' : 'items'} added
               </p>
               <p className="text-lg font-bold text-primary">
-                共: RM {totalAmount.toFixed(2)}
+                Total: RM {totalAmount.toFixed(2)}
               </p>
             </>
           ) : (
-            <p className="text-muted-foreground italic">您的购物车是空的，快去添加商品吧！</p>
+            <p className="text-muted-foreground italic">Your cart is empty. Let's add some items!</p>
           )}
         </div>
         <Link href={checkoutHref} passHref legacyBehavior>
@@ -52,9 +52,9 @@ export default function FloatingCheckoutBar({ cartItems }: FloatingCheckoutBarPr
                           : 'bg-muted text-muted-foreground cursor-not-allowed opacity-70'}`}
             aria-disabled={!hasItems}
             onClick={handleCheckoutClick}
-            title={hasItems ? "去结账" : "请先添加商品至购物车"}
+            title={hasItems ? "Proceed to checkout" : "Please add items to your cart first"}
           >
-            {hasItems ? '去结账' : '购物车为空'}
+            {hasItems ? 'Checkout' : 'Cart is Empty'}
             {hasItems && <ArrowRight className="h-5 w-5" />}
             {!hasItems && <Package className="h-5 w-5" />}
           </a>
@@ -63,3 +63,4 @@ export default function FloatingCheckoutBar({ cartItems }: FloatingCheckoutBarPr
     </div>
   );
 }
+
