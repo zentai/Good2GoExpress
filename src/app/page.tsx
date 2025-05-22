@@ -1,13 +1,14 @@
 
 'use client';
 
-import { useState, useEffect } from 'react'; // Added useEffect
+import { useState, useEffect } from 'react'; 
 import Header from '@/components/Header';
 import SwipeableProductView from '@/components/SwipeableProductView';
 import ProductGrid from '@/components/ProductGrid';
 import { mockProducts } from '@/data/products';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LayoutGrid, SquareStack } from 'lucide-react'; 
+import FloatingCheckoutBar from '@/components/FloatingCheckoutBar'; // Added import
 
 export default function HomePage() {
   const [viewMode, setViewMode] = useState<'swipe' | 'grid'>('grid');
@@ -16,12 +17,12 @@ export default function HomePage() {
   useEffect(() => {
     // Ensure this runs only on the client after hydration
     setCurrentYear(new Date().getFullYear());
-  }, []); // Empty dependency array ensures this runs once on mount
+  }, []); 
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
-      <main className="flex-grow container mx-auto px-0 xs:px-2 sm:px-4 py-4">
+      <main className="flex-grow container mx-auto px-0 xs:px-2 sm:px-4 py-4 pb-28"> {/* Added pb-28 for spacing above floating bar */}
         <Tabs defaultValue="grid" onValueChange={(value) => setViewMode(value as 'swipe' | 'grid')} className="w-full mb-6">
           <TabsList className="grid w-full max-w-xs mx-auto grid-cols-2">
             <TabsTrigger value="grid" className="flex items-center gap-2">
@@ -41,11 +42,12 @@ export default function HomePage() {
           </TabsContent>
         </Tabs>
       </main>
+      <FloatingCheckoutBar /> {/* Added FloatingCheckoutBar */}
       <footer className="bg-muted text-center py-4 text-sm text-muted-foreground border-t">
         {currentYear !== null ? (
           <p>&copy; {currentYear} Good2Go Express. All rights reserved.</p>
         ) : (
-          <p>&copy; Good2Go Express. All rights reserved.</p> // Fallback or loading state for year
+          <p>&copy; Good2Go Express. All rights reserved.</p> 
         )}
       </footer>
     </div>
