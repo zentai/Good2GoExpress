@@ -2,29 +2,27 @@
 'use client';
 
 import Link from 'next/link';
-import { Package, ArrowRight } from 'lucide-react';
+import { Package, ArrowRight } from 'lucide-react'; // Package icon still fits "Packing"
 import type { OrderItem } from '@/lib/types';
-import { useRouter } from 'next/navigation'; // Import useRouter for programmatic navigation if needed
+import { useRouter } from 'next/navigation';
 
 interface FloatingCheckoutBarProps {
-  cartItems: OrderItem[];
+  trayItems: OrderItem[]; // Renamed from cartItems
 }
 
-export default function FloatingCheckoutBar({ cartItems }: FloatingCheckoutBarProps) {
+export default function FloatingCheckoutBar({ trayItems }: FloatingCheckoutBarProps) {
   const router = useRouter();
-  const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-  const totalAmount = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const itemCount = trayItems.reduce((sum, item) => sum + item.quantity, 0); // Assuming quantity is always 1 for this new logic
+  const totalAmount = trayItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const hasItems = itemCount > 0;
 
-  // Checkout link always goes to /checkout. Logic for handling empty cart is in the onClick.
-  const checkoutHref = '/checkout';
+  const checkoutHref = '/checkout'; // This page will be "Packing List"
 
-  const handleCheckoutClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+  const handlePackingClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (!hasItems) {
-      e.preventDefault(); // Prevent navigation if cart is empty
-      alert("Your cart is empty. Please add items first!"); // Simple alert for now, can be replaced with a toast
+      e.preventDefault(); 
+      alert("Your list is empty. Please select some items first!"); 
     }
-    // If hasItems, the Next.js Link component will handle navigation to checkoutHref
   };
 
   return (
@@ -34,14 +32,14 @@ export default function FloatingCheckoutBar({ cartItems }: FloatingCheckoutBarPr
           {hasItems ? (
             <>
               <p className="font-semibold text-foreground">
-                {itemCount} {itemCount === 1 ? 'item' : 'items'} added
+                {itemCount} {itemCount === 1 ? 'item' : 'items'} in your list
               </p>
               <p className="text-lg font-bold text-primary">
                 Total: RM {totalAmount.toFixed(2)}
               </p>
             </>
           ) : (
-            <p className="text-muted-foreground italic">Your cart is empty. Let's add some items!</p>
+            <p className="text-muted-foreground italic">Your list is empty. Let's pick some items!</p>
           )}
         </div>
         <Link href={checkoutHref} passHref legacyBehavior>
@@ -51,16 +49,15 @@ export default function FloatingCheckoutBar({ cartItems }: FloatingCheckoutBarPr
                           ? 'bg-accent text-accent-foreground hover:bg-accent/90 active:scale-95'
                           : 'bg-muted text-muted-foreground cursor-not-allowed opacity-70'}`}
             aria-disabled={!hasItems}
-            onClick={handleCheckoutClick}
-            title={hasItems ? "Proceed to checkout" : "Please add items to your cart first"}
+            onClick={handlePackingClick}
+            title={hasItems ? "Proceed to packing" : "Please add items to your list first"}
           >
-            {hasItems ? 'Checkout' : 'Cart is Empty'}
+            <Package className="h-5 w-5" /> {/* Package icon is suitable for "Packing" */}
+            {hasItems ? 'Start Packing' : 'List is Empty'}
             {hasItems && <ArrowRight className="h-5 w-5" />}
-            {!hasItems && <Package className="h-5 w-5" />}
           </a>
         </Link>
       </div>
     </div>
   );
 }
-

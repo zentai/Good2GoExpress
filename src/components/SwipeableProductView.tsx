@@ -1,16 +1,19 @@
+
 'use client';
 
 import { useState } from 'react';
-import type { Product } from '@/lib/types';
+import type { Product, OrderItem } from '@/lib/types';
 import ProductCard from './ProductCard';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface SwipeableProductViewProps {
   products: Product[];
+  onToggleItemInList: (product: Product) => void; // Added prop
+  trayItems: OrderItem[]; // Added prop
 }
 
-const SwipeableProductView = ({ products }: SwipeableProductViewProps) => {
+const SwipeableProductView = ({ products, onToggleItemInList, trayItems }: SwipeableProductViewProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   if (!products || products.length === 0) {
@@ -25,10 +28,18 @@ const SwipeableProductView = ({ products }: SwipeableProductViewProps) => {
     setCurrentIndex((prevIndex) => (prevIndex === products.length - 1 ? 0 : prevIndex + 1));
   };
 
+  const currentProduct = products[currentIndex];
+  const isInList = trayItems.some(item => item.productId === currentProduct.id);
+
   return (
     <div className="flex flex-col items-center w-full max-w-md mx-auto p-4 gap-4">
       <div className="w-full h-full flex items-center justify-center">
-         <ProductCard product={products[currentIndex]} layout="swipe" />
+         <ProductCard 
+            product={currentProduct} 
+            layout="swipe" 
+            onToggleItemInList={onToggleItemInList}
+            isInList={isInList}
+          />
       </div>
       <div className="flex justify-between w-full mt-4">
         <Button onClick={goToPrevious} variant="outline" size="lg" aria-label="Previous Product">

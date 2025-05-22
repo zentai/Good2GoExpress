@@ -3,21 +3,21 @@
 
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import type { Product } from '@/lib/types';
+import type { Product, OrderItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Heart, ShoppingCart } from 'lucide-react';
+import { Heart } from 'lucide-react'; // Changed from ShoppingCart
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
 interface ProductCardProps {
   product: Product;
+  onToggleItemInList: (product: Product) => void; // Renamed from onAddToCart
+  isInList: boolean; // New prop to indicate if item is in the list
   layout?: 'grid' | 'swipe';
-  onAddToCart: (product: Product) => void; // Add this prop
 }
 
-const ProductCard = ({ product, onAddToCart }: ProductCardProps) => {
-  const [isFavorite, setIsFavorite] = useState(false);
+const ProductCard = ({ product, onToggleItemInList, isInList, layout }: ProductCardProps) => {
   const [clientMounted, setClientMounted] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
@@ -26,29 +26,20 @@ const ProductCard = ({ product, onAddToCart }: ProductCardProps) => {
     setClientMounted(true);
   }, []);
 
-  const handleFavoriteToggle = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    setIsFavorite(!isFavorite);
-    toast({
-      title: isFavorite ? `💔 Removed "${product.name}" from favorites` : `❤️ Added "${product.name}" to favorites`,
-      duration: 3000,
-    });
-  };
-
   const handleCardClick = () => {
-    router.push(`/checkout?productId=${product.id}`);
+    // Navigate to a generic checkout/details page, as "packing" happens later
+    router.push(`/checkout`); 
   };
 
-  const handleAddToCartClick = (e: React.MouseEvent) => {
+  const handleToggleListClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
     
-    onAddToCart(product); // Call the passed-in function
+    onToggleItemInList(product);
 
-    toast({ // Keep the toast for immediate user feedback
-      title: `✅ 已加入「${product.name}」x1`,
-      duration: 5000,
+    toast({
+      title: isInList ? `❌ Removed "${product.name}" from your list` : `✅ Added "${product.name}" to your list`,
+      duration: 3000,
     });
   };
 
@@ -56,12 +47,12 @@ const ProductCard = ({ product, onAddToCart }: ProductCardProps) => {
     return (
       <div 
         className="group rounded-lg overflow-hidden shadow-md bg-card animate-pulse flex flex-col"
-        style={{ height: '244px' }} // Match the final card height
+        style={{ height: '244px' }} 
       >
-        <div className="h-44 bg-muted rounded-t-lg"></div> {/* Image placeholder */}
+        <div className="h-44 bg-muted rounded-t-lg"></div>
         <div className="p-3 space-y-2 flex-grow flex flex-col justify-center">
-          <div className="h-4 bg-muted rounded w-3/4"></div> {/* Name placeholder */}
-          <div className="h-4 bg-muted rounded w-1/2"></div> {/* Price placeholder */}
+          <div className="h-4 bg-muted rounded w-3/4"></div>
+          <div className="h-4 bg-muted rounded w-1/2"></div>
         </div>
       </div>
     );
@@ -93,16 +84,21 @@ const ProductCard = ({ product, onAddToCart }: ProductCardProps) => {
           </div>
         )}
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="absolute top-2 right-2 z-20 h-9 w-9 bg-black/20 hover:bg-black/40 text-white hover:text-red-400 rounded-full p-0 backdrop-blur-sm transition-all active:scale-90"
-          onClick={handleFavoriteToggle}
-          aria-label={isFavorite ? `Remove ${product.name} from favorites` : `Add ${product.name} to favorites`}
-        >
-          <Heart className={cn("h-5 w-5", isFavorite ? "fill-red-500 text-red-500" : "text-white")} />
-        </Button>
+        {/* Top-right favorite icon REMOVED as per requirements */}
 
+        <Button
+            variant="default" // Or outline if preferred for empty heart
+            size="icon"
+            className={cn(
+                "absolute bottom-3 right-3 z-20 rounded-full h-10 w-10 shadow-lg hover:scale-110 active:scale-95 transition-all duration-200",
+                isInList ? "bg-red-500 hover:bg-red-600 text-white" : "bg-accent hover:bg-accent/90 text-accent-foreground"
+            )}
+            onClick={handleToggleListClick}
+            aria-label={isInList ? `Remove ${product.name} from your list` : `Add ${product.name} to your list (Interested)`}
+          >
+            <Heart className={cn("h-5 w-5", isInList ? "fill-white" : "fill-transparent" )} />
+        </Button>
+        
         <Image
           src={product.imageUrl}
           alt={product.name}
@@ -112,16 +108,6 @@ const ProductCard = ({ product, onAddToCart }: ProductCardProps) => {
           data-ai-hint={product.dataAiHint}
           priority={product.id === '1' || product.id === '2'}
         />
-        
-        <Button
-            variant="default"
-            size="icon"
-            className="absolute bottom-3 right-3 z-20 bg-accent hover:bg-accent/90 text-accent-foreground rounded-full h-10 w-10 shadow-lg hover:scale-110 active:scale-95 transition-all duration-200"
-            onClick={handleAddToCartClick} // Updated handler
-            aria-label={`Add ${product.name} to cart`}
-          >
-            <ShoppingCart className="h-5 w-5" />
-        </Button>
       </div>
       
       <div className="p-3 flex-grow flex flex-col justify-center">

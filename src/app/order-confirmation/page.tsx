@@ -2,37 +2,24 @@
 'use client';
 
 import { Suspense, useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation'; // useSearchParams removed as it's less relevant now
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, MessageSquare, Home, ShoppingBag } from 'lucide-react';
+import { CheckCircle, MessageSquare, Home, Package } from 'lucide-react';
 
-// This page might become a more generic "Order Submitted" page if WhatsApp is optional.
-// For now, keeping the WhatsApp chat button, but its relevance depends on the checkout flow.
-
-const WHATSAPP_PHONE_NUMBER = '+60187693136'; // Ensure this is defined or imported
+const WHATSAPP_PHONE_NUMBER = '+60187693136'; 
 
 function OrderConfirmationContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  
-  // These params might not be relevant if navigating here after Firebase submission without WhatsApp
-  const productName = searchParams.get('productName') || 'Your Order'; 
-  const price = searchParams.get('price') || 'N/A'; // Default if not passed
-  const pickupTime = searchParams.get('pickupTime') || 'your selected time';
+  // Removed searchParams logic as order details are not passed via URL now
 
-  const formattedPickupTime = pickupTime; // Simplified as actual time is now passed or not needed
-
-  // Construct a generic message if order details are not passed via params
-  const orderMessage = `Hi! I have a question about my recent order placed via Good2Go Express.`;
-  const whatsappUrl = `https://wa.me/${WHATSAPP_PHONE_NUMBER}?text=${encodeURIComponent(orderMessage)}`;
+  const contactMessage = `Hi! I have a question about my recently submitted packing list.`;
+  const whatsappUrl = `https://wa.me/${WHATSAPP_PHONE_NUMBER}?text=${encodeURIComponent(contactMessage)}`;
 
   useEffect(() => {
-    // Clear cart from localStorage if the user lands here.
-    // This is a fallback, should ideally be cleared upon successful submission.
     if (typeof window !== 'undefined') {
-        localStorage.removeItem('good2go_cart');
+        localStorage.removeItem('good2go_cart'); // Clear the list
     }
   }, []);
 
@@ -42,21 +29,18 @@ function OrderConfirmationContent() {
         <div className="mx-auto bg-primary/10 p-3 rounded-full w-fit mb-4">
           <CheckCircle className="h-16 w-16 text-primary" />
         </div>
-        <CardTitle className="text-3xl font-bold text-primary">Order Submitted!</CardTitle>
+        <CardTitle className="text-3xl font-bold text-primary">List Submitted for Packing!</CardTitle>
         <CardDescription className="text-lg text-muted-foreground">
-          Your order has been successfully submitted.
+          Your items have been successfully submitted for packing.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="p-4 border rounded-lg bg-secondary/30">
           <p className="text-base">
-            We've received your order. It will be ready for pickup at {formattedPickupTime}.
+            We've received your list. It will be prepared for pickup at your selected time.
           </p>
-          {price !== 'N/A' && (
-            <p className="text-xl font-bold text-accent mt-1">Total: RM {parseFloat(price).toFixed(2)}</p>
-          )}
            <p className="text-sm text-muted-foreground mt-2">
-            You will receive a confirmation shortly. If you chose to send via WhatsApp, please ensure the message was sent.
+            You will receive a confirmation shortly if applicable. If you chose to send via WhatsApp, please ensure the message was sent.
           </p>
         </div>
         
@@ -93,7 +77,7 @@ export default function OrderConfirmationPage() {
       <main className="flex-grow container mx-auto px-4 py-8 flex items-center justify-center">
       <Suspense fallback={
         <div className="flex flex-col justify-center items-center h-[calc(100vh-150px)]">
-            <ShoppingBag className="h-12 w-12 animate-spin text-primary" />
+            <Package className="h-12 w-12 animate-spin text-primary" /> {/* Changed icon */}
             <p className="ml-4 text-lg">Loading confirmation...</p>
         </div>
       }>
