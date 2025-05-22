@@ -3,21 +3,29 @@
 
 import Link from 'next/link';
 import { Package, ArrowRight } from 'lucide-react';
-import type { OrderItem } from '@/lib/types'; // Import OrderItem
+import type { OrderItem } from '@/lib/types';
+import { useRouter } from 'next/navigation'; // Import useRouter for programmatic navigation if needed
 
 interface FloatingCheckoutBarProps {
-  cartItems: OrderItem[]; // Accept cartItems as a prop
+  cartItems: OrderItem[];
 }
 
 export default function FloatingCheckoutBar({ cartItems }: FloatingCheckoutBarProps) {
+  const router = useRouter();
   const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const totalAmount = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const hasItems = itemCount > 0;
 
-  // Determine the href for the checkout link
-  // If there are items, link to checkout with the first item's ID
-  // Otherwise, the link is nominal as the onClick handler will prevent navigation.
-  const checkoutHref = hasItems ? `/checkout?productId=${cartItems[0].productId}` : '/checkout';
+  // Checkout link always goes to /checkout. Logic for handling empty cart is in the onClick.
+  const checkoutHref = '/checkout';
+
+  const handleCheckoutClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!hasItems) {
+      e.preventDefault(); // Prevent navigation if cart is empty
+      alert("您的购物车是空的，请先添加商品！"); // Simple alert for now, can be replaced with a toast
+    }
+    // If hasItems, the Next.js Link component will handle navigation to checkoutHref
+  };
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 p-3 bg-card/95 backdrop-blur-sm border-t border-border shadow-lg">
@@ -43,13 +51,7 @@ export default function FloatingCheckoutBar({ cartItems }: FloatingCheckoutBarPr
                           ? 'bg-accent text-accent-foreground hover:bg-accent/90 active:scale-95'
                           : 'bg-muted text-muted-foreground cursor-not-allowed opacity-70'}`}
             aria-disabled={!hasItems}
-            onClick={(e) => {
-              if (!hasItems) {
-                e.preventDefault();
-                alert("您的购物车是空的，请先添加商品！"); // Simple alert for now
-              }
-              // If hasItems, link will proceed.
-            }}
+            onClick={handleCheckoutClick}
             title={hasItems ? "去结账" : "请先添加商品至购物车"}
           >
             {hasItems ? '去结账' : '购物车为空'}

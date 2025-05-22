@@ -5,38 +5,62 @@ import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import SwipeableProductView from '@/components/SwipeableProductView';
 import ProductGrid from '@/components/ProductGrid';
-import { mockProducts } from '@/data/products';
-import type { Product, OrderItem } from '@/lib/types'; // Added OrderItem
+import { mockProducts } from '@/data/products'; // Assuming mockProducts might be dynamic in future
+import type { Product, OrderItem } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LayoutGrid, SquareStack } from 'lucide-react';
 import FloatingCheckoutBar from '@/components/FloatingCheckoutBar';
+import { useToast } from '@/hooks/use-toast'; // Import useToast
 
 export default function HomePage() {
   const [viewMode, setViewMode] = useState<'swipe' | 'grid'>('grid');
   const [currentYear, setCurrentYear] = useState<number | null>(null);
   const [cartItems, setCartItems] = useState<OrderItem[]>([]);
+  const { toast } = useToast(); // Initialize toast
 
   useEffect(() => {
     setCurrentYear(new Date().getFullYear());
+    // Load cart from localStorage on initial mount
+    if (typeof window !== 'undefined') {
+      const savedCart = localStorage.getItem('good2go_cart');
+      if (savedCart) {
+        try {
+          const parsedCart = JSON.parse(savedCart);
+          if (Array.isArray(parsedCart)) {
+            setCartItems(parsedCart as OrderItem[]);
+          }
+        } catch (error) {
+          console.error("Failed to parse cart from localStorage on HomePage mount:", error);
+          localStorage.removeItem('good2go_cart'); // Clear corrupted data
+        }
+      }
+    }
   }, []);
 
   const handleAddToCart = (product: Product) => {
     setCartItems(prevItems => {
       const existingItemIndex = prevItems.findIndex(item => item.productId === product.id);
+      let updatedItems;
       if (existingItemIndex > -1) {
         // Increase quantity of existing item
-        const updatedItems = [...prevItems];
+        updatedItems = [...prevItems];
         updatedItems[existingItemIndex] = {
           ...updatedItems[existingItemIndex],
           quantity: updatedItems[existingItemIndex].quantity + 1,
         };
-        return updatedItems;
       } else {
         // Add new item with quantity 1
-        return [...prevItems, { productId: product.id, name: product.name, price: product.price, quantity: 1 }];
+        updatedItems = [...prevItems, { productId: product.id, name: product.name, price: product.price, quantity: 1 }];
       }
+      // Save updated cart to localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('good2go_cart', JSON.stringify(updatedItems));
+      }
+      return updatedItems;
     });
-    // The toast in ProductCard already handles user feedback for adding an item.
+
+    // Toast notification from ProductCard.tsx handles this, but if global feedback needed, can add here.
+    // For now, ProductCard's toast is sufficient for individual item add.
   };
 
   return (
@@ -58,6 +82,7 @@ export default function HomePage() {
           <TabsContent value="swipe" className="focus-visible:ring-0 focus-visible:ring-offset-0">
             <div className="flex justify-center">
               {/* If SwipeableProductView also needs add to cart, pass handleAddToCart here too */}
+              {/* For now, assuming SwipeableProductView's ProductCard handles its own add to cart via props or context */}
               <SwipeableProductView products={mockProducts} />
             </div>
           </TabsContent>
