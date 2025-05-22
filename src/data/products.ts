@@ -10,7 +10,7 @@ export const mockProducts: Product[] = [
     imageUrl: 'https://placehold.co/300x388.png', // Adjusted for 1:1 ratio
     category: 'Bowls',
     dataAiHint: 'avocado bowl',
-    badge: { text: '🔥 热卖', type: 'hot' },
+    badge: { text: '🔥 Hot', type: 'hot' },
   },
   {
     id: '2',
@@ -20,7 +20,7 @@ export const mockProducts: Product[] = [
     imageUrl: 'https://placehold.co/300x388.png',
     category: 'Wraps',
     dataAiHint: 'chicken wrap',
-    badge: { text: '🍱 招牌', type: 'signature' },
+    badge: { text: '⭐ Signature', type: 'signature' },
   },
   {
     id: '3',
@@ -39,7 +39,7 @@ export const mockProducts: Product[] = [
     imageUrl: 'https://placehold.co/300x388.png',
     category: 'Salads',
     dataAiHint: 'quinoa salad',
-    badge: { text: '⚡ 限量', type: 'limited' },
+    badge: { text: '⚡ Limited', type: 'limited' },
   },
   {
     id: '5',
