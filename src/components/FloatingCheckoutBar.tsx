@@ -3,13 +3,17 @@
 
 import Link from 'next/link';
 import { Package, ArrowRight } from 'lucide-react';
+import type { OrderItem } from '@/lib/types'; // Import OrderItem
 
-export default function FloatingCheckoutBar() {
-  // Placeholder values - these would come from a cart state management solution
-  const itemCount = 0; // Example: 3
-  const totalAmount = 0.00; // Example: 24.00
+interface FloatingCheckoutBarProps {
+  cartItems: OrderItem[]; // Accept cartItems as a prop
+}
 
-  // Determine button/text based on cart state (simplified for now)
+export default function FloatingCheckoutBar({ cartItems }: FloatingCheckoutBarProps) {
+  // Calculate itemCount and totalAmount dynamically
+  const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const totalAmount = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
   const hasItems = itemCount > 0;
 
   return (
@@ -19,33 +23,32 @@ export default function FloatingCheckoutBar() {
           {hasItems ? (
             <>
               <p className="font-semibold text-foreground">
-                {itemCount} {itemCount === 1 ? 'item' : 'items'} in cart
+                已加购 {itemCount} {itemCount === 1 ? '项' : '项'}
               </p>
               <p className="text-lg font-bold text-primary">
-                Total: RM {totalAmount.toFixed(2)}
+                共: RM {totalAmount.toFixed(2)}
               </p>
             </>
           ) : (
-            <p className="text-muted-foreground italic">Your cart is empty. Add some items!</p>
+            <p className="text-muted-foreground italic">您的购物车是空的，快去添加商品吧！</p>
           )}
         </div>
         <Link href="/checkout" passHref legacyBehavior>
           <a
             className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-base font-medium shadow-md transition-all
-                        ${hasItems 
-                          ? 'bg-accent text-accent-foreground hover:bg-accent/90 active:scale-95' 
+                        ${hasItems
+                          ? 'bg-accent text-accent-foreground hover:bg-accent/90 active:scale-95'
                           : 'bg-muted text-muted-foreground cursor-not-allowed opacity-70'}`}
             aria-disabled={!hasItems}
             onClick={(e) => {
               if (!hasItems) {
                 e.preventDefault();
-                // Optionally, show a toast here: "Please add items to your cart first."
-                alert("Please add items to your cart first."); // Simple alert for now
+                alert("您的购物车是空的，请先添加商品！"); // Simple alert for now
               }
             }}
-            title={hasItems ? "Go to Checkout" : "Add items to cart to proceed"}
+            title={hasItems ? "去结账" : "请先添加商品至购物车"}
           >
-            {hasItems ? 'Checkout' : 'Cart Empty'}
+            {hasItems ? '去结账' : '购物车为空'}
             {hasItems && <ArrowRight className="h-5 w-5" />}
             {!hasItems && <Package className="h-5 w-5" />}
           </a>

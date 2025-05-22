@@ -1,23 +1,43 @@
 
 'use client';
 
-import { useState, useEffect } from 'react'; 
+import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import SwipeableProductView from '@/components/SwipeableProductView';
 import ProductGrid from '@/components/ProductGrid';
 import { mockProducts } from '@/data/products';
+import type { Product, OrderItem } from '@/lib/types'; // Added OrderItem
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LayoutGrid, SquareStack } from 'lucide-react'; 
-import FloatingCheckoutBar from '@/components/FloatingCheckoutBar'; // Added import
+import { LayoutGrid, SquareStack } from 'lucide-react';
+import FloatingCheckoutBar from '@/components/FloatingCheckoutBar';
 
 export default function HomePage() {
   const [viewMode, setViewMode] = useState<'swipe' | 'grid'>('grid');
   const [currentYear, setCurrentYear] = useState<number | null>(null);
+  const [cartItems, setCartItems] = useState<OrderItem[]>([]);
 
   useEffect(() => {
-    // Ensure this runs only on the client after hydration
     setCurrentYear(new Date().getFullYear());
-  }, []); 
+  }, []);
+
+  const handleAddToCart = (product: Product) => {
+    setCartItems(prevItems => {
+      const existingItemIndex = prevItems.findIndex(item => item.productId === product.id);
+      if (existingItemIndex > -1) {
+        // Increase quantity of existing item
+        const updatedItems = [...prevItems];
+        updatedItems[existingItemIndex] = {
+          ...updatedItems[existingItemIndex],
+          quantity: updatedItems[existingItemIndex].quantity + 1,
+        };
+        return updatedItems;
+      } else {
+        // Add new item with quantity 1
+        return [...prevItems, { productId: product.id, name: product.name, price: product.price, quantity: 1 }];
+      }
+    });
+    // The toast in ProductCard already handles user feedback for adding an item.
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -33,21 +53,22 @@ export default function HomePage() {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="grid" className="focus-visible:ring-0 focus-visible:ring-offset-0">
-            <ProductGrid products={mockProducts} />
+            <ProductGrid products={mockProducts} onAddToCart={handleAddToCart} />
           </TabsContent>
           <TabsContent value="swipe" className="focus-visible:ring-0 focus-visible:ring-offset-0">
             <div className="flex justify-center">
+              {/* If SwipeableProductView also needs add to cart, pass handleAddToCart here too */}
               <SwipeableProductView products={mockProducts} />
             </div>
           </TabsContent>
         </Tabs>
       </main>
-      <FloatingCheckoutBar /> {/* Added FloatingCheckoutBar */}
+      <FloatingCheckoutBar cartItems={cartItems} /> {/* Pass cartItems */}
       <footer className="bg-muted text-center py-4 text-sm text-muted-foreground border-t">
         {currentYear !== null ? (
           <p>&copy; {currentYear} Good2Go Express. All rights reserved.</p>
         ) : (
-          <p>&copy; Good2Go Express. All rights reserved.</p> 
+          <p>&copy; Good2Go Express. All rights reserved.</p>
         )}
       </footer>
     </div>
