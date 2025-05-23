@@ -123,7 +123,7 @@ function PackingPageContent({
   const availableDates = useMemo(() => {
     const dates = [];
     const today = new Date();
-    for (let i = 0; i < 14; i++) { // Show next 14 days
+    for (let i = 0; i < 5; i++) { // Show next 5 days
       dates.push(addDays(today, i));
     }
     return dates;
@@ -403,7 +403,7 @@ export default function PackingPage() {
     setTotalItemCountGlobal(initialItemCount);
 
 
-    if (initialTray.length === 0 && router.pathname === '/checkout') {
+    if (initialTray.length === 0 && (router as any).pathname === '/checkout') { // Type assertion as pathname might not be standard
         toast({
           title: "Your Packing List is Empty",
           description: "Let's add some items first!",
@@ -431,7 +431,7 @@ export default function PackingPage() {
             setTotalAmountGlobal(newTotal);
             setTotalItemCountGlobal(newCount);
 
-            if (updatedCart.length === 0 && router.pathname === '/checkout') {
+            if (updatedCart.length === 0 && (router as any).pathname === '/checkout') {
                 toast({ title: "List Cleared", description: "Your packing list was cleared.", duration: 2000 });
                 router.push('/');
             }
