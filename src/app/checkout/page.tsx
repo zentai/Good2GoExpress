@@ -43,6 +43,7 @@ function TrayItemDisplay({ item, onUpdateQuantity }: TrayItemDisplayProps) {
   else if (item.name.toLowerCase().includes('smoothie') || item.name.toLowerCase().includes('brew') || item.name.toLowerCase().includes('drink')) emoji = '🥤';
   else if (item.name.toLowerCase().includes('bowl') || item.name.toLowerCase().includes('salad')) emoji = '🥗';
 
+
   return (
     <div className="py-4 border-b border-border last:border-b-0">
       <div className="flex justify-between items-center mb-1">
@@ -186,7 +187,7 @@ function PackingPageContent({
 
   useEffect(() => {
     const totals = updateTotals(trayItems);
-    if (typeof window !== 'undefined' && !isLoading) { // Avoid writing empty array on initial load if still loading
+    if (typeof window !== 'undefined' && !isLoading) { 
         localStorage.setItem('good2go_cart', JSON.stringify(trayItems));
     }
     onStateChangeForParent({
@@ -199,19 +200,17 @@ function PackingPageContent({
       sendWhatsApp: sendViaWhatsApp
     });
 
-    // This redirect is for when the user *manually* empties the cart on this page.
-    // The parent component handles redirect if the page is loaded initially with an empty cart.
     if (trayItems.length === 0 && !isLoading) {
       toast({
         title: "Your List is Empty",
-        description: "It looks like you haven't selected any items yet.",
+        description: "Your packing list is empty. Add some items first!",
         variant: "destructive",
         duration: 3000,
       });
       router.push('/');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trayItems, selectedDate, selectedPickupTime, unitNumber, sendViaWhatsApp, isLoading /* router, toast, updateTotals were causing issues here if not memoized correctly */]);
+  }, [trayItems, selectedDate, selectedPickupTime, unitNumber, sendViaWhatsApp, isLoading, onStateChangeForParent, router, toast, updateTotals]);
 
 
   const handleUpdateQuantity = (productId: string, newQuantity: number) => {
@@ -233,7 +232,7 @@ function PackingPageContent({
     });
   };
   
-  if (isLoading && initialTrayItems.length === 0) { // Show loader only if truly loading empty initial state
+  if (isLoading && initialTrayItems.length === 0) { 
     return (
       <div className="flex flex-col justify-center items-center h-[calc(100vh-200px)]">
         <Package className="h-12 w-12 animate-spin text-primary" />
@@ -354,14 +353,12 @@ function PackingPageContent({
           👉 After confirming, {sendViaWhatsApp ? "you'll be redirected to WhatsApp to send the pre-filled list." : "your list will be submitted for packing."}
         </p>
       </CardContent>
-      {/* Footer with Go button is now handled by the parent PackingPage component */}
     </Card>
   );
 }
 
 
 export default function PackingPage() {
-  const [pageKey, setPageKey] = useState(Date.now()); // Used to force re-render of content if needed, but use sparingly
   const [trayItemsGlobal, setTrayItemsGlobal] = useState<OrderItem[]>([]);
   const [totalAmountGlobal, setTotalAmountGlobal] = useState(0);
   const [totalItemCountGlobal, setTotalItemCountGlobal] = useState(0);
@@ -380,26 +377,33 @@ export default function PackingPage() {
 
   useEffect(() => {
     let initialTray: OrderItem[] = [];
+    let savedUnit = '';
+    let savedSkipPreview = false;
+
     if (typeof window !== 'undefined') {
-      const savedTray = localStorage.getItem('good2go_cart');
-      if (savedTray) {
+      const trayData = localStorage.getItem('good2go_cart');
+      if (trayData) {
         try {
-          initialTray = JSON.parse(savedTray);
+          initialTray = JSON.parse(trayData);
         } catch { console.error("Failed to parse tray from localStorage"); initialTray = []; }
       }
-      setTrayItemsGlobal(initialTray);
-      setTotalAmountGlobal(initialTray.reduce((sum, item) => sum + item.price * item.quantity, 0));
-      setTotalItemCountGlobal(initialTray.reduce((sum, item) => sum + item.quantity, 0));
-
-      const savedUnit = localStorage.getItem(LOCALSTORAGE_UNIT_NUMBER_KEY);
-      if (savedUnit) setUnitNumberGlobal(savedUnit);
-
-      const savedSkipPreview = localStorage.getItem(LOCALSTORAGE_SKIP_PREVIEW_KEY);
-      if (savedSkipPreview === 'true') setSkipPreviewNextTime(true);
+      savedUnit = localStorage.getItem(LOCALSTORAGE_UNIT_NUMBER_KEY) || '';
+      savedSkipPreview = localStorage.getItem(LOCALSTORAGE_SKIP_PREVIEW_KEY) === 'true';
     }
     
-    // Redirect if cart is initially empty when page loads
-    if (initialTray.length === 0) {
+    setTrayItemsGlobal(initialTray);
+    setUnitNumberGlobal(savedUnit);
+    setSkipPreviewNextTime(savedSkipPreview);
+    // setSendViaWhatsAppGlobal is already true by default
+
+    // Calculate initial totals
+    const initialTotal = initialTray.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const initialItemCount = initialTray.reduce((sum, item) => sum + item.quantity, 0);
+    setTotalAmountGlobal(initialTotal);
+    setTotalItemCountGlobal(initialItemCount);
+
+
+    if (initialTray.length === 0 && router.pathname === '/checkout') {
         toast({
           title: "Your Packing List is Empty",
           description: "Let's add some items first!",
@@ -407,25 +411,27 @@ export default function PackingPage() {
           duration: 3000,
         });
         router.push('/');
-        return; // Stop further execution if redirecting
+        return; 
     }
     setIsInitialLoading(false);
 
 
-    // Listener for storage changes to keep UI in sync (e.g. if cart cleared on another tab)
     const handleStorageChange = (event: StorageEvent) => {
-        if (event.key === 'good2go_cart' || event.key === null) { // null means clear() was called
-            const currentCart = localStorage.getItem('good2go_cart');
+        if (event.key === 'good2go_cart' || event.key === null) { 
+            const currentCartData = localStorage.getItem('good2go_cart');
             let updatedCart: OrderItem[] = [];
-            if (currentCart) {
+            if (currentCartData) {
                 try {
-                    updatedCart = JSON.parse(currentCart);
+                    updatedCart = JSON.parse(currentCartData);
                 } catch {}
             }
-            setTrayItemsGlobal(updatedCart);
-            setTotalAmountGlobal(updatedCart.reduce((sum, item) => sum + item.price * item.quantity, 0));
-            setTotalItemCountGlobal(updatedCart.reduce((sum, item) => sum + item.quantity, 0));
-            if (updatedCart.length === 0 && router.pathname === '/checkout') { // If cart emptied externally and we are on checkout page
+            setTrayItemsGlobal(updatedCart); // Update parent's tray state
+            const newTotal = updatedCart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+            const newCount = updatedCart.reduce((sum, item) => sum + item.quantity, 0);
+            setTotalAmountGlobal(newTotal);
+            setTotalItemCountGlobal(newCount);
+
+            if (updatedCart.length === 0 && router.pathname === '/checkout') {
                 toast({ title: "List Cleared", description: "Your packing list was cleared.", duration: 2000 });
                 router.push('/');
             }
@@ -448,8 +454,7 @@ export default function PackingPage() {
     unit: string,
     sendWhatsApp: boolean
   }) => {
-    // These states are primarily driven by PackingPageContent, but parent needs to know for the GO button & Preview Modal
-    setTrayItemsGlobal(data.items); // Keep global list in sync
+    setTrayItemsGlobal(data.items); 
     setSelectedDateGlobal(data.pickupDate);
     setSelectedPickupTimeGlobal(data.pickupTime);
     setTotalAmountGlobal(data.amount);
@@ -459,7 +464,7 @@ export default function PackingPage() {
   }, []);
 
   const handleFinalSubmit = async () => {
-    setShowPreviewModal(false); // Close modal if open
+    setShowPreviewModal(false); 
     setIsSubmittingGlobal(true);
 
     const orderDataForFirebase = {
@@ -486,7 +491,6 @@ export default function PackingPage() {
         orderId: firebaseResponse.orderId,
       });
 
-      // Clear cart from localStorage BEFORE navigation
       if (typeof window !== 'undefined') {
         localStorage.removeItem('good2go_cart');
       }
@@ -510,11 +514,8 @@ export default function PackingPage() {
 
         const whatsappUrl = `https://wa.me/${WHATSAPP_PHONE_NUMBER}?text=${encodeURIComponent(packingDetails)}`;
         
-        // Navigate to order confirmation IN THE BACKGROUND if possible, then WhatsApp
-        // This is tricky. For simplicity, if WhatsApp is chosen, we go to WhatsApp.
-        // The order confirmation page is more for non-WhatsApp orders or if user returns.
-        router.push(`/order-confirmation?${queryParams.toString()}`); // Navigate to confirmation first
-        window.open(whatsappUrl, '_blank'); // Open WhatsApp in new tab to not lose context, or use window.location.href if preferred
+        router.push(`/order-confirmation?${queryParams.toString()}`); 
+        window.open(whatsappUrl, '_blank'); 
 
       } else {
          router.push(`/order-confirmation?${queryParams.toString()}`);
@@ -528,7 +529,6 @@ export default function PackingPage() {
         variant: "destructive",
         duration: 5000,
       });
-      // Only set to false if error, successful navigation will unmount
       setIsSubmittingGlobal(false); 
     }
   };
@@ -572,7 +572,7 @@ export default function PackingPage() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
-      <main key={pageKey} className="flex-grow container mx-auto px-0 sm:px-4 py-6 sm:py-8 pb-28"> {/* pb-28 for fixed footer */}
+      <main className="flex-grow container mx-auto px-0 sm:px-4 py-6 sm:py-8 pb-28"> {/* pb-28 for fixed footer */}
         <Suspense fallback={
           <div className="flex flex-col justify-center items-center h-[calc(100vh-200px)]">
             <Package className="h-16 w-16 animate-spin text-primary" />
@@ -657,7 +657,7 @@ export default function PackingPage() {
             <Button
               onClick={handleGoButtonClick}
               disabled={isSubmittingGlobal || trayItemsGlobal.length === 0 || !selectedDateGlobal || !selectedPickupTimeGlobal}
-              className="flex-1 h-14 text-md bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl shadow-md flex items-center justify-center gap-2 transition-all duration-150 ease-in-out active:scale-95"
+              className="flex-[2_1_0%] h-14 text-md bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl shadow-md flex items-center justify-center gap-2 transition-all duration-150 ease-in-out active:scale-95"
             >
               {isSubmittingGlobal ? (
                 <>
@@ -666,7 +666,7 @@ export default function PackingPage() {
               ) : (
                 <>
                   <Rocket className="mr-1 h-5 w-5 group-hover:animate-pulse" />
-                   Go ({totalItemCountGlobal > 0 ? `RM ${totalAmountGlobal.toFixed(2)} | ${totalItemCountGlobal}` : 'List Empty'})
+                   Go (RM {totalAmountGlobal.toFixed(2)} | {totalItemCountGlobal} {totalItemCountGlobal === 1 ? 'item' : 'items'})
                 </>
               )}
             </Button>
@@ -675,3 +675,4 @@ export default function PackingPage() {
     </div>
   );
 }
+
