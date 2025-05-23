@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Suspense, useState, useEffect, useCallback } from 'react';
+import { Suspense, useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import type { OrderItem } from '@/lib/types';
 import Header from '@/components/Header';
