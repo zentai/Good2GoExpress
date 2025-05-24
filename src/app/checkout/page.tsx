@@ -583,7 +583,7 @@ export default function PackingPage() {
     );
   }
 
-  let goButtonText = `🚀 Go (RM ${totalAmountGlobal.toFixed(2)} | ${totalItemCountGlobal} ${totalItemCountGlobal === 1 ? 'item' : 'items'})`;
+  let goButtonText = `Go (RM ${totalAmountGlobal.toFixed(2)} * ${totalItemCountGlobal} ${totalItemCountGlobal === 1 ? 'item' : 'items'})`;
   let isGoButtonDisabled = isSubmittingGlobal || trayItemsGlobal.length === 0;
 
   if (trayItemsGlobal.length > 0) {
