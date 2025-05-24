@@ -3,24 +3,33 @@
 
 import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
-import SwipeableProductView from '@/components/SwipeableProductView';
 import ProductGrid from '@/components/ProductGrid';
 import { mockProducts } from '@/data/products';
-import type { Product, OrderItem } from '@/lib/types';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LayoutGrid, SquareStack } from 'lucide-react';
+import type { Product, OrderItem, ProductCategory, ProductCategorySlug } from '@/lib/types';
 import FloatingCheckoutBar from '@/components/FloatingCheckoutBar';
-// useToast is not directly used here anymore for adding items, it's in ProductCard
+import { Button } from '@/components/ui/button';
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { cn } from '@/lib/utils';
+
+const categories: ProductCategory[] = [
+  { name: "✨ All Items", slug: "all" as ProductCategorySlug },
+  { name: "🍿 Snack Attack", slug: "snack-attack" },
+  { name: "🧃 Thirst Quenchers", slug: "thirst-quenchers" },
+  { name: "🧴 Everyday Essentials", slug: "everyday-essentials" },
+  { name: "🔌 Home Helpers", slug: "home-helpers" },
+  { name: "🏕️ Camp & Go", slug: "camp-go" },
+  { name: "📦 Best Bundles", slug: "best-bundles" },
+];
 
 export default function HomePage() {
-  const [viewMode, setViewMode] = useState<'swipe' | 'grid'>('grid');
   const [currentYear, setCurrentYear] = useState<number | null>(null);
-  const [trayItems, setTrayItems] = useState<OrderItem[]>([]); // Renamed from cartItems
+  const [trayItems, setTrayItems] = useState<OrderItem[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<ProductCategorySlug>("all");
 
   useEffect(() => {
     setCurrentYear(new Date().getFullYear());
     if (typeof window !== 'undefined') {
-      const savedTray = localStorage.getItem('good2go_cart'); // Keep localStorage key for now
+      const savedTray = localStorage.getItem('good2go_cart');
       if (savedTray) {
         try {
           const parsedTray = JSON.parse(savedTray);
@@ -41,10 +50,8 @@ export default function HomePage() {
       let updatedItems;
 
       if (existingItemIndex > -1) {
-        // Item exists, remove it
         updatedItems = prevItems.filter(item => item.productId !== product.id);
       } else {
-        // Item does not exist, add it
         updatedItems = [...prevItems, { productId: product.id, name: product.name, price: product.price, quantity: 1 }];
       }
       
@@ -55,38 +62,44 @@ export default function HomePage() {
     });
   };
 
+  const filteredProducts = selectedCategory === "all"
+    ? mockProducts
+    : mockProducts.filter(product => product.category === selectedCategory);
+
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
       <main className="flex-grow container mx-auto px-0 xs:px-2 sm:px-4 py-4 pb-28">
-        <Tabs defaultValue="grid" onValueChange={(value) => setViewMode(value as 'swipe' | 'grid')} className="w-full mb-6">
-          <TabsList className="grid w-full max-w-xs mx-auto grid-cols-2">
-            <TabsTrigger value="grid" className="flex items-center gap-2">
-              <LayoutGrid className="h-5 w-5" /> Grid View
-            </TabsTrigger>
-            <TabsTrigger value="swipe" className="flex items-center gap-2">
-              <SquareStack className="h-5 w-5" /> Swipe View
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="grid" className="focus-visible:ring-0 focus-visible:ring-offset-0">
-            <ProductGrid 
-              products={mockProducts} 
-              onToggleItemInList={handleToggleTrayItem} 
-              trayItems={trayItems} 
-            />
-          </TabsContent>
-          <TabsContent value="swipe" className="focus-visible:ring-0 focus-visible:ring-offset-0">
-            <div className="flex justify-center">
-              <SwipeableProductView 
-                products={mockProducts} 
-                onToggleItemInList={handleToggleTrayItem} 
-                trayItems={trayItems} 
-              />
+        <div className="px-2 sm:px-0 mb-6">
+          <ScrollArea className="w-full whitespace-nowrap rounded-md">
+            <div className="flex w-max space-x-2 p-1.5">
+              {categories.map((category) => (
+                <Button
+                  key={category.slug}
+                  variant={selectedCategory === category.slug ? 'default' : 'outline'}
+                  className={cn(
+                    "rounded-full h-9 px-4 text-sm shadow-sm",
+                    selectedCategory === category.slug
+                      ? "bg-primary text-primary-foreground hover:bg-primary/90" // Active state (using primary)
+                      : "bg-background text-primary border-primary hover:bg-primary/10" // Inactive state
+                  )}
+                  onClick={() => setSelectedCategory(category.slug)}
+                >
+                  {category.name}
+                </Button>
+              ))}
             </div>
-          </TabsContent>
-        </Tabs>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+        </div>
+        
+        <ProductGrid 
+          products={filteredProducts} 
+          onToggleItemInList={handleToggleTrayItem} 
+          trayItems={trayItems} 
+        />
       </main>
-      <FloatingCheckoutBar trayItems={trayItems} /> {/* Pass trayItems */}
+      <FloatingCheckoutBar trayItems={trayItems} />
       <footer className="bg-muted text-center py-4 text-sm text-muted-foreground border-t">
         {currentYear !== null ? (
           <p>&copy; {currentYear} Good2Go Express. All rights reserved.</p>
