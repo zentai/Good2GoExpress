@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -70,33 +69,44 @@ export default {
   			}
   		},
   		borderRadius: {
-  			lg: 'var(--radius)',
+  			lg: 'var(--radius)', // 0.75rem = 12px
   			md: 'calc(var(--radius) - 2px)',
-  			sm: 'calc(var(--radius) - 4px)'
+  			sm: 'calc(var(--radius) - 4px)',
+        xl: 'calc(var(--radius) + 4px)', // For larger roundness like image cards
+        '2xl': 'calc(var(--radius) + 8px)',
+        '3xl': 'calc(var(--radius) + 16px)',
+        full: '9999px',
   		},
   		keyframes: {
   			'accordion-down': {
-  				from: {
-  					height: '0'
-  				},
-  				to: {
-  					height: 'var(--radix-accordion-content-height)'
-  				}
+  				from: { height: '0' },
+  				to: { height: 'var(--radix-accordion-content-height)' }
   			},
   			'accordion-up': {
-  				from: {
-  					height: 'var(--radix-accordion-content-height)'
-  				},
-  				to: {
-  					height: '0'
-  				}
-  			}
+  				from: { height: 'var(--radix-accordion-content-height)' },
+  				to: { height: '0' }
+  			},
+        'fade-in': {
+          from: { opacity: '0', transform: 'scale(0.95)' },
+          to: { opacity: '1', transform: 'scale(1)' },
+        },
+        'slide-out-left': {
+          from: { opacity: '1', transform: 'translateX(0) rotate(0deg)' },
+          to: { opacity: '0', transform: 'translateX(-100vw) rotate(-10deg)' },
+        },
+        'slide-out-right': {
+          from: { opacity: '1', transform: 'translateX(0) rotate(0deg)' },
+          to: { opacity: '0', transform: 'translateX(100vw) rotate(10deg)' },
+        },
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
-  			'accordion-up': 'accordion-up 0.2s ease-out'
+  			'accordion-up': 'accordion-up 0.2s ease-out',
+        'fade-in': 'fade-in 0.3s ease-out forwards',
+        'slide-out-left': 'slide-out-left 0.5s cubic-bezier(0.785, 0.135, 0.15, 0.86) forwards',
+        'slide-out-right': 'slide-out-right 0.5s cubic-bezier(0.785, 0.135, 0.15, 0.86) forwards',
   		}
   	}
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [require("tailwindcss-animate"), require('@tailwindcss/line-clamp')],
 } satisfies Config;

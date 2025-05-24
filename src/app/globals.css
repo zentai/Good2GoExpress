@@ -8,7 +8,7 @@ body {
 
 @layer base {
   :root {
-    --background: 60 56% 91%; /* #F5F5DC Light Beige */
+    --background: 60 56% 91%; /* #FDF6E3 approx from prompt (Beige) */
     --foreground: 60 10% 25%; /* Dark Gray/Brown */
 
     --card: 60 56% 95%; /* Lighter Beige */
@@ -17,33 +17,32 @@ body {
     --popover: 60 56% 95%;
     --popover-foreground: 60 10% 25%;
 
-    --primary: 153 30% 60%; /* #76BA99 Muted Green */
+    --primary: 153 30% 50%; /* #3DA78A from prompt (Green for price) */
     --primary-foreground: 0 0% 100%; /* White */
 
-    --secondary: 60 50% 85%; /* Lighter shade of background for secondary elements */
+    --secondary: 60 50% 85%; 
     --secondary-foreground: 60 10% 25%;
 
-    --muted: 60 45% 88%; /* Muted beige */
-    --muted-foreground: 60 10% 45%; /* Muted text */
+    --muted: 60 45% 88%; 
+    --muted-foreground: 60 10% 45%; 
 
-    --accent: 39 100% 50%; /* #FFA500 Energetic Orange */
-    --accent-foreground: 0 0% 10%; /* Dark text for accent */
+    --accent: 39 100% 50%; /* #FFA500 Energetic Orange for CTA */
+    --accent-foreground: 0 0% 100%; /* White for accent text */
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 60 40% 80%; /* Subtle beige border */
-    --input: 60 40% 85%; /* Input background */
+    --border: 60 40% 80%; 
+    --input: 60 40% 85%; 
     --ring: 39 100% 50%; /* Accent color for rings */
 
-    --radius: 0.5rem;
+    --radius: 0.75rem; /* 12px for card roundness */
 
-    /* Sidebar specific colors - updated to match theme but might not be heavily used */
-    --sidebar-background: 60 56% 93%; /* Slightly darker beige for sidebar */
+    --sidebar-background: 60 56% 93%; 
     --sidebar-foreground: 60 10% 25%;
-    --sidebar-primary: 153 30% 55%; /* Darker muted green for sidebar primary */
+    --sidebar-primary: 153 30% 55%; 
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 39 100% 55%; /* Slightly darker orange for sidebar accent */
+    --sidebar-accent: 39 100% 55%; 
     --sidebar-accent-foreground: 0 0% 10%;
     --sidebar-border: 60 40% 75%;
     --sidebar-ring: 39 100% 50%;
@@ -56,7 +55,7 @@ body {
   }
 
   .dark {
-    /* Define dark mode colors if needed, for now keeping them consistent with light or providing a generic dark theme */
+    /* Keeping dark mode consistent with original or slightly adjusted for new theme */
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
 
@@ -66,7 +65,7 @@ body {
     --popover: 240 10% 3.9%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 153 30% 60%; /* Muted Green - can adjust for dark mode */
+    --primary: 153 30% 60%; 
     --primary-foreground: 0 0% 10%; 
 
     --secondary: 240 3.7% 15.9%;
@@ -75,7 +74,7 @@ body {
     --muted: 240 3.7% 15.9%;
     --muted-foreground: 0 0% 63.9%;
 
-    --accent: 39 100% 50%; /* Energetic Orange - can adjust for dark mode */
+    --accent: 39 100% 50%; 
     --accent-foreground: 0 0% 10%;
 
     --destructive: 0 62.8% 30.6%;
@@ -104,3 +103,39 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Custom Animations for Swipe View - ensure these are in Tailwind config or defined here */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+
+@keyframes slideOutLeft {
+  from { opacity: 1; transform: translateX(0) rotate(0deg); }
+  to { opacity: 0; transform: translateX(-100vw) rotate(-10deg); } /* Full viewport width */
+}
+.animate-slide-out-left { animation: slideOutLeft 0.5s cubic-bezier(0.785, 0.135, 0.15, 0.86) forwards; }
+
+
+@keyframes slideOutRight {
+  from { opacity: 1; transform: translateX(0) rotate(0deg); }
+  to { opacity: 0; transform: translateX(100vw) rotate(10deg); } /* Full viewport width */
+}
+.animate-slide-out-right { animation: slideOutRight 0.5s cubic-bezier(0.785, 0.135, 0.15, 0.86) forwards; }
+
+/* Line clamp utility */
+.line-clamp-1 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+.line-clamp-3 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+
