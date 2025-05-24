@@ -5,19 +5,18 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import type { Product, OrderItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Heart } from 'lucide-react'; // Changed from ShoppingCart
+import { Heart } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
 interface ProductCardProps {
   product: Product;
-  onToggleItemInList: (product: Product) => void; // Renamed from onAddToCart
-  isInList: boolean; // New prop to indicate if item is in the list
-  layout?: 'grid' | 'swipe';
+  onToggleItemInList: (product: Product) => void;
+  isInList: boolean;
 }
 
-const ProductCard = ({ product, onToggleItemInList, isInList, layout }: ProductCardProps) => {
+const ProductCard = ({ product, onToggleItemInList, isInList }: ProductCardProps) => {
   const [clientMounted, setClientMounted] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
@@ -27,15 +26,15 @@ const ProductCard = ({ product, onToggleItemInList, isInList, layout }: ProductC
   }, []);
 
   const handleCardClick = () => {
-    // Navigate to a generic checkout/details page, as "packing" happens later
-    router.push(`/checkout`); 
+    // Navigate to the new single product display page
+    router.push(`/product/${product.id}`);
   };
 
   const handleToggleListClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
+    e.stopPropagation(); // Prevent card click event from firing
     e.preventDefault();
     
-    onToggleItemInList(product);
+    onToggleItemInList(product); // This function is passed from HomePage, manages state and localStorage
 
     toast({
       title: isInList ? `❌ Removed "${product.name}" from your list` : `✅ Added "${product.name}" to your list`,
@@ -44,13 +43,14 @@ const ProductCard = ({ product, onToggleItemInList, isInList, layout }: ProductC
   };
 
   if (!clientMounted) {
+    // Skeleton Loader
     return (
       <div 
         className="group rounded-lg overflow-hidden shadow-md bg-card animate-pulse flex flex-col"
-        style={{ height: '244px' }} 
+        style={{ height: '244px' }} // Fixed height
       >
-        <div className="h-44 bg-muted rounded-t-lg"></div>
-        <div className="p-3 space-y-2 flex-grow flex flex-col justify-center">
+        <div className="h-44 bg-muted rounded-t-lg"></div> {/* Image area placeholder */}
+        <div className="p-3 space-y-2 flex-grow flex flex-col justify-center"> {/* Text area placeholder */}
           <div className="h-4 bg-muted rounded w-3/4"></div>
           <div className="h-4 bg-muted rounded w-1/2"></div>
         </div>
@@ -61,13 +61,14 @@ const ProductCard = ({ product, onToggleItemInList, isInList, layout }: ProductC
   return (
     <div
       className="group rounded-lg overflow-hidden shadow-md hover:shadow-xl active:shadow-lg active:bg-secondary/30 transition-all duration-300 bg-card flex flex-col cursor-pointer"
-      onClick={handleCardClick}
+      onClick={handleCardClick} // Main card click navigates to product detail page
       role="button"
       tabIndex={0}
       onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleCardClick()}
       aria-label={`View details for ${product.name}`}
-      style={{ height: '244px' }} 
+      style={{ height: '244px' }} // Fixed height for the card
     >
+      {/* Image container with fixed height */}
       <div className="relative aspect-square w-full overflow-hidden bg-muted h-44"> 
         {product.badge && (
           <div
@@ -84,16 +85,15 @@ const ProductCard = ({ product, onToggleItemInList, isInList, layout }: ProductC
           </div>
         )}
 
-        {/* Top-right favorite icon REMOVED as per requirements */}
-
+        {/* Heart button for adding/removing from list directly from grid */}
         <Button
-            variant="default" // Or outline if preferred for empty heart
+            variant="default"
             size="icon"
             className={cn(
                 "absolute bottom-3 right-3 z-20 rounded-full h-10 w-10 shadow-lg hover:scale-110 active:scale-95 transition-all duration-200",
                 isInList ? "bg-red-500 hover:bg-red-600 text-white" : "bg-accent hover:bg-accent/90 text-accent-foreground"
             )}
-            onClick={handleToggleListClick}
+            onClick={handleToggleListClick} // This button toggles in list directly
             aria-label={isInList ? `Remove ${product.name} from your list` : `Add ${product.name} to your list (Interested)`}
           >
             <Heart className={cn("h-5 w-5", isInList ? "fill-white" : "fill-transparent" )} />
@@ -103,13 +103,14 @@ const ProductCard = ({ product, onToggleItemInList, isInList, layout }: ProductC
           src={product.imageUrl}
           alt={product.name}
           fill
-          sizes="(max-width: 374px) 100vw, (max-width: 599px) 50vw, 33vw"
+          sizes="(max-width: 374px) 100vw, (max-width: 599px) 50vw, 33vw" // Consider adjusting if card size is fixed
           className="object-cover group-hover:scale-105 transition-transform duration-300 ease-in-out"
-          data-ai-hint={product.dataAiHint}
-          priority={product.id === '1' || product.id === '2'}
+          data-ai-hint={product.dataAiHint || product.name.split(" ").slice(0,2).join(" ")}
+          priority={product.id === '1' || product.id === '2'} // Example priority
         />
       </div>
       
+      {/* Text content area below the image */}
       <div className="p-3 flex-grow flex flex-col justify-center">
         <h3 className="text-sm font-semibold text-foreground truncate leading-tight" title={product.name}>{product.name}</h3>
         <p className="text-base font-bold text-primary mt-1">RM {product.price.toFixed(2)}</p>

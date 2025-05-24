@@ -602,7 +602,7 @@ export default function PackingPage() {
     goButtonText = "List is Empty";
     isGoButtonDisabled = true;
   } else {
-    goButtonText = `🚀 Go (RM ${totalAmountGlobal.toFixed(2)} | ${totalItemCountGlobal} ${totalItemCountGlobal === 1 ? 'item' : 'items'})`;
+    goButtonText = `RM ${totalAmountGlobal.toFixed(2)} （${totalItemCountGlobal} ${totalItemCountGlobal === 1 ? 'item' : 'items'})`;
     if (!selectedDateGlobal) {
       isGoButtonDisabled = true;
       // The button text remains the same, but it's disabled. A toast will show the reason if clicked.
