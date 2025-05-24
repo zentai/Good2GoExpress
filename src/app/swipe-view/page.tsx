@@ -11,6 +11,8 @@ import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { X, Plus, ShoppingBag, ArrowLeft, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+// Toasts were removed as per previous request
+// import { useToast } from '@/hooks/use-toast';
 
 const getProductIndexById = (id: string, products: Product[]): number => {
   return products.findIndex(p => p.id === id);
@@ -19,6 +21,7 @@ const getProductIndexById = (id: string, products: Product[]): number => {
 export default function SwipeViewPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  // const { toast } = useToast(); // Toasts removed
 
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -27,12 +30,10 @@ export default function SwipeViewPage() {
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [actionFeedback, setActionFeedback] = useState<'added' | 'skipped' | null>(null);
-  const [animationKey, setAnimationKey] = useState(0); // For re-triggering enter animation
+  const [animationKey, setAnimationKey] = useState(0);
 
-  // Initialize products and current product based on query param or default
   useEffect(() => {
     setIsLoading(true);
-    // Simulate fetching or directly use mockProducts
     setAllProducts(mockProducts);
 
     const savedTray = localStorage.getItem('good2go_cart');
@@ -48,7 +49,7 @@ export default function SwipeViewPage() {
 
     const initialProductId = searchParams.get('productId');
     let initialIndex = 0;
-    if (initialProductId) {
+    if (initialProductId && mockProducts.length > 0) {
       const foundIndex = getProductIndexById(initialProductId, mockProducts);
       if (foundIndex !== -1) {
         initialIndex = foundIndex;
@@ -61,28 +62,36 @@ export default function SwipeViewPage() {
     } else {
       setCurrentProduct(null);
     }
-    setAnimationKey(prev => prev + 1); // Trigger initial animation
+    setAnimationKey(prev => prev + 1);
     setIsLoading(false);
-  }, [searchParams]); // Removed allProducts from deps as it's stable after init
+  }, [searchParams]);
 
-  // Save trayItems to localStorage whenever it changes
   useEffect(() => {
-    if (!isLoading && (trayItems.length > 0 || localStorage.getItem('good2go_cart') !== null) ) {
+    if (!isLoading && (trayItems.length > 0 || localStorage.getItem('good2go_cart') !== null)) {
       localStorage.setItem('good2go_cart', JSON.stringify(trayItems));
     }
   }, [trayItems, isLoading]);
 
+  const scrollSwipeContainerToTop = () => {
+    const container = document.querySelector('.main-swipe-container');
+    if (container) {
+      container.scrollTop = 0;
+    }
+  };
+
   const advanceToNextProduct = useCallback(() => {
     setIsDescriptionExpanded(false); // Collapse description for next card
+    scrollSwipeContainerToTop(); // Scroll to top for the new card view
+    
     setCurrentIndex(prevIndex => {
       const nextIdx = prevIndex + 1;
       if (nextIdx >= allProducts.length) {
-        // No toast for end of list
+        // No toast for end of list - Toasts removed
         router.push('/checkout');
-        return prevIndex; // Stay on last item if redirecting
+        return prevIndex; 
       }
       setCurrentProduct(allProducts[nextIdx]);
-      setAnimationKey(prev => prev + 1); // For animation on new card
+      setAnimationKey(prev => prev + 1); 
       return nextIdx;
     });
   }, [allProducts, router]);
@@ -103,8 +112,8 @@ export default function SwipeViewPage() {
     setTimeout(() => {
       advanceToNextProduct();
       setActionFeedback(null);
-    }, 300); // Shorter delay for faster flow
-  }, [currentProduct, advanceToNextProduct, trayItems]); // Added trayItems to deps
+    }, 300);
+  }, [currentProduct, advanceToNextProduct, trayItems, isItemInTray]); // Added isItemInTray
 
   const handleSkip = useCallback(() => {
     if (!currentProduct) return;
@@ -112,45 +121,44 @@ export default function SwipeViewPage() {
     setTimeout(() => {
       advanceToNextProduct();
       setActionFeedback(null);
-    }, 300); // Shorter delay for faster flow
+    }, 300);
   }, [currentProduct, advanceToNextProduct]);
 
   const toggleDescription = useCallback((e?: React.MouseEvent) => {
-    if (e) e.stopPropagation(); // Prevent event bubbling if called from click
-    setIsDescriptionExpanded(prev => !prev);
-  }, []);
+    if (e) e.stopPropagation(); 
+    const nextState = !isDescriptionExpanded;
+    setIsDescriptionExpanded(nextState);
+    if (!nextState) { // If collapsing description
+      scrollSwipeContainerToTop();
+    }
+  }, [isDescriptionExpanded]);
   
   const collapseDescription = useCallback((e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    setIsDescriptionExpanded(false);
-  }, []);
+    if (isDescriptionExpanded) {
+      setIsDescriptionExpanded(false);
+      scrollSwipeContainerToTop();
+    }
+  }, [isDescriptionExpanded]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  function isItemInTray(productId: string): boolean {
+    return trayItems.some(item => item.productId === productId);
+  }
 
-  const isItemInTray = useCallback(
-    (productId: string) => trayItems.some(item => item.productId === productId),
-    [trayItems]
-  );
 
   const swipeHandlers = useSwipeable({
-    onSwipedLeft: (eventData) => { 
-      eventData.event.stopPropagation(); 
-      handleSkip(); 
-    },
-    onSwipedRight: (eventData) => { 
-      eventData.event.stopPropagation(); 
-      handleAddToPack(); 
-    },
-    onSwipedUp: (eventData) => {
-      eventData.event.stopPropagation();
-      if (isDescriptionExpanded) return; // Disable if description is expanded
+    onSwipedLeft: handleSkip,
+    onSwipedRight: handleAddToPack,
+    onSwipedUp: () => {
+      if (isDescriptionExpanded) return; // Allow native scroll when description expanded
       router.push('/checkout');
     },
-    onSwipedDown: (eventData) => {
-      eventData.event.stopPropagation();
-      if (isDescriptionExpanded) return; // Disable if description is expanded
+    onSwipedDown: () => {
+      if (isDescriptionExpanded) return; // Allow native scroll when description expanded
       router.push('/');
     },
-    preventScrollOnSwipe: true,
+    preventScrollOnSwipe: !isDescriptionExpanded, // Dynamically prevent scroll based on description state
     trackMouse: true,
     delta: 10,
   });
@@ -177,27 +185,32 @@ export default function SwipeViewPage() {
         <Header />
       </div>
 
-      {/* Main swipeable content area */}
       <div
         {...swipeHandlers}
-        className="flex-grow flex flex-col items-center justify-center pt-16 pb-28 relative touch-none"
+        className={cn(
+          "main-swipe-container flex-grow flex flex-col items-center pt-16 pb-28 relative touch-pan-y", // touch-pan-y to allow vertical scroll
+          isDescriptionExpanded ? "overflow-y-auto justify-start" : "overflow-hidden justify-center"
+        )}
       >
         {currentProduct && (
           <div 
-            key={animationKey} // Key change triggers animation
-            className={cn("w-full max-w-sm md:max-w-md flex flex-col items-center", cardAnimationClass)}
+            key={animationKey} 
+            className={cn(
+              "w-full max-w-sm md:max-w-md flex flex-col items-center", 
+              cardAnimationClass,
+              isDescriptionExpanded ? "pb-10" : "" // Add some padding at bottom when expanded
+            )}
           >
-            {/* Image Area */}
             <div 
-              className="relative w-full aspect-[3/4] max-h-[65vh] bg-muted rounded-xl shadow-2xl overflow-hidden cursor-pointer"
-              onClick={isDescriptionExpanded ? collapseDescription : undefined} // Click image to collapse description
+              className="relative w-full aspect-[3/4] max-h-[65vh] bg-muted rounded-xl shadow-2xl overflow-hidden"
+              onClick={isDescriptionExpanded ? collapseDescription : undefined}
             >
               <Image
                 src={currentProduct.imageUrl}
                 alt={currentProduct.name}
                 fill
                 priority
-                className="object-cover pointer-events-none" // Make image non-interactive for swipe
+                className="object-cover pointer-events-none"
                 data-ai-hint={currentProduct.dataAiHint || "product image"}
               />
               {currentProduct.badge && (
@@ -216,12 +229,11 @@ export default function SwipeViewPage() {
               )}
             </div>
 
-            {/* Info and Expandable Description Area */}
             <div
               className="w-full p-4 -mt-5 relative z-20"
-              onClick={toggleDescription} // Click info area to toggle description
+              onClick={!isDescriptionExpanded ? toggleDescription : undefined} 
             >
-              <div className="p-4 bg-card rounded-lg shadow-lg cursor-pointer">
+              <div className={cn("p-4 bg-card rounded-lg shadow-lg", !isDescriptionExpanded && "cursor-pointer")}>
                 <div className="flex justify-between items-start">
                   <h2 className="text-lg font-bold text-foreground mr-2">{currentProduct.name}</h2>
                   <p className="text-lg font-bold text-primary whitespace-nowrap">RM {currentProduct.price.toFixed(2)}</p>
@@ -234,14 +246,12 @@ export default function SwipeViewPage() {
                     </p>
                   ) : (
                     <div
-                      className="max-h-[140px] overflow-y-auto p-1 -m-1 border rounded-md bg-background/50 scrollbar-thin scrollbar-thumb-muted-foreground/50 scrollbar-track-transparent"
-                      onClick={(e) => e.stopPropagation()} // Prevent click from toggling when scrolling
-                      onTouchStart={(e) => e.stopPropagation()} // Crucial for enabling scroll on touch
-                      onMouseDown={(e) => e.stopPropagation()} // For mouse interaction
+                      className="whitespace-pre-line text-xs leading-relaxed pt-2" // Removed max-h, overflow, specific bg/border
+                      onClick={(e) => e.stopPropagation()} 
+                      onTouchStart={(e) => e.stopPropagation()} 
+                      onMouseDown={(e) => e.stopPropagation()}
                     >
-                      <p className="whitespace-pre-line text-xs leading-relaxed">
-                        {currentProduct.description}
-                      </p>
+                      <p>{currentProduct.description}</p>
                     </div>
                   )}
                 </div>
@@ -251,7 +261,6 @@ export default function SwipeViewPage() {
         )}
       </div>
 
-      {/* Fixed Bottom Action Buttons */}
       <div className="fixed bottom-0 left-0 right-0 z-50 p-3 bg-background/80 backdrop-blur-sm border-t border-border">
         <div className="container mx-auto max-w-md flex items-center justify-around gap-3">
           <Button
