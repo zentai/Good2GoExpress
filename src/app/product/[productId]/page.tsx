@@ -31,9 +31,10 @@ export default function ProductDetailPage() {
         setTrayItems(JSON.parse(savedTray));
       } catch (e) {
         console.error("Failed to parse tray from localStorage", e);
-        setTrayItems([]);
+        setTrayItems([]); // Initialize to empty if parsing fails
       }
     }
+    setIsLoading(false); // Set loading to false after attempting to load tray
   }, []);
 
   // Find product by ID
@@ -41,18 +42,21 @@ export default function ProductDetailPage() {
     if (productId) {
       const foundProduct = mockProducts.find((p) => p.id === productId);
       setProduct(foundProduct || null);
+      // setIsLoading(false) moved to the tray loading effect to ensure tray is loaded first
+    } else {
+      setIsLoading(false); // If no productId, stop loading
     }
-    setIsLoading(false);
   }, [productId]);
 
-  // Persist tray items to localStorage
+  // Persist tray items to localStorage - CRITICAL FIX HERE
   useEffect(() => {
-    // Only save if trayItems has been initialized (not in its initial empty array state from useState)
-    // This prevents overwriting localStorage with an empty array on initial load before it's populated.
-    if (trayItems.length > 0 || localStorage.getItem('good2go_cart')) {
+    // Only save to localStorage if trayItems has been initialized AND it's not the initial empty array
+    // that might overwrite a good cart before it's loaded.
+    // Or if there was already something in localStorage (meaning we are updating an existing cart).
+    if (!isLoading && (trayItems.length > 0 || localStorage.getItem('good2go_cart') !== null)) {
         localStorage.setItem('good2go_cart', JSON.stringify(trayItems));
     }
-  }, [trayItems]);
+  }, [trayItems, isLoading]);
 
 
   const isItemInTray = useCallback(
@@ -83,7 +87,7 @@ export default function ProductDetailPage() {
             productId: product.id,
             name: product.name,
             price: product.price,
-            quantity: 1,
+            quantity: 1, // Default quantity to 1 when adding
           },
         ];
         toast({
@@ -109,7 +113,12 @@ export default function ProductDetailPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col min-h-screen bg-background">
-        <Header />
+        {/* Minimal header for loading state or use full Header */}
+        <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-md shadow-sm">
+            <div className="container mx-auto px-4 py-3 flex items-center justify-between h-[57px]">
+                 <ShoppingBag className="h-8 w-8 animate-pulse text-primary" />
+            </div>
+        </div>
         <main className="flex-grow container mx-auto px-4 py-8 flex items-center justify-center">
           <ShoppingBag className="h-16 w-16 animate-spin text-primary" />
           <p className="ml-4 text-xl text-muted-foreground">Loading Product...</p>
@@ -121,12 +130,21 @@ export default function ProductDetailPage() {
   if (!product) {
     return (
       <div className="flex flex-col min-h-screen bg-background">
-        <Header />
+        <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-md shadow-sm">
+          <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+            <Button variant="ghost" size="icon" onClick={() => router.push('/')} aria-label="Back to Menu">
+              <ArrowLeft className="h-6 w-6" />
+            </Button>
+            <h1 className="text-lg font-semibold text-destructive truncate flex-1 text-center px-2">
+              Product Not Found
+            </h1>
+            <div className="w-10"></div> {/* Spacer */}
+          </div>
+        </div>
         <main className="flex-grow container mx-auto px-4 py-8 text-center">
-          <h2 className="text-2xl font-semibold text-destructive mb-4">Product Not Found</h2>
           <p className="text-muted-foreground mb-6">Sorry, we couldn't find the product you're looking for.</p>
           <Button onClick={() => router.push('/')} variant="outline">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Home
+             Back to Menu
           </Button>
         </main>
       </div>
@@ -137,11 +155,11 @@ export default function ProductDetailPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background pb-24"> {/* Padding bottom for fixed bar */}
-      {/* Simplified Top Bar */}
+      {/* Top Navigation Bar */}
       <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-md shadow-sm">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <Button variant="ghost" size="icon" onClick={() => router.back()} aria-label="Go back">
-            <ArrowLeft className="h-6 w-6" />
+          <Button variant="ghost" size="icon" onClick={() => router.push('/')} aria-label="Back to Menu">
+            <ArrowLeft className="h-5 w-5 mr-1" /> 
           </Button>
           <h1 className="text-lg font-semibold text-foreground truncate flex-1 text-center px-2">
             {product.name}
@@ -153,9 +171,8 @@ export default function ProductDetailPage() {
       </div>
 
       <main className="flex-grow container mx-auto px-0 sm:px-4">
-        {/* Product Image -占整頁 60% 高度 is a bit tricky without JS for viewport height. Using aspect ratio. */}
-        <div className="relative w-full aspect-[3/2] sm:aspect-video md:aspect-[16/9] max-h-[60vh] bg-muted overflow-hidden">
-          {/* Placeholder for image carousel - showing first image */}
+        {/* Product Image Area */}
+        <div className="relative w-full aspect-[1/1] sm:aspect-square md:aspect-[3/2] max-h-[60vh] bg-muted overflow-hidden">
           <Image
             src={product.imageUrl}
             alt={product.name}
@@ -164,27 +181,27 @@ export default function ProductDetailPage() {
             className="object-cover"
             data-ai-hint={product.dataAiHint || "product image"}
           />
-          {/* Add carousel dots here if implementing */}
+          {/* Placeholder for swipe indicators if multiple images were implemented */}
         </div>
 
-        {/* Product Info */}
-        <div className="p-4 space-y-3">
+        {/* Product Info Area */}
+        <div className="p-4 space-y-3 border-b">
           <div className="flex justify-between items-start">
             <h2 className="text-2xl font-bold text-foreground">{product.name}</h2>
             {product.badge && (
               <Badge
                 variant={
                   product.badge.type === 'hot' ? 'destructive' :
-                  product.badge.type === 'new' ? 'default' : // 'default' is often primary
-                  product.badge.type === 'limited' ? 'secondary' : // Using secondary for limited
-                  'outline' // Fallback
+                  product.badge.type === 'new' ? 'default' : 
+                  product.badge.type === 'limited' ? 'secondary' : 
+                  product.badge.type === 'signature' ? 'default' : // Using default (primary) for signature
+                  'outline' 
                 }
                 className={cn(
                   "text-sm px-3 py-1",
                   product.badge.type === 'hot' && "bg-red-500 text-white",
-                  product.badge.type === 'new' && "bg-blue-500 text-white",
+                  product.badge.type === 'new' && "bg-blue-500 text-white", // Example, can be primary
                   product.badge.type === 'signature' && "bg-primary text-primary-foreground",
-                  // ensure custom and limited have distinct styles if needed
                 )}
               >
                 {product.badge.text}
@@ -194,15 +211,14 @@ export default function ProductDetailPage() {
           <p className="text-2xl font-bold text-primary">RM {product.price.toFixed(2)}</p>
         </div>
 
-        {/* Product Description */}
-        <div className="p-4 space-y-2 border-t">
-          <h3 className="text-md font-semibold text-muted-foreground">Description</h3>
+        {/* Product Description Area */}
+        <div className="p-4 space-y-2">
+          <h3 className="text-md font-semibold text-muted-foreground mb-1">Description</h3>
           <p className="text-sm text-foreground leading-relaxed">
             {product.description || "Delicious and freshly prepared for you."}
           </p>
-          {/* Detailed list - example, can be driven by product data */}
-          <p className="text-sm text-foreground leading-relaxed mt-2">
-            Includes: 🥬 Fresh Greens, 🍅 Ripe Tomatoes, 🌾 Quality Grains... and a touch of love!
+          <p className="text-sm text-foreground leading-relaxed mt-3">
+            <span className="font-medium">Includes:</span> 🥬 Fresh Greens, 🍅 Ripe Tomatoes, 🌾 Quality Grains... and a touch of love!
           </p>
         </div>
       </main>
@@ -235,3 +251,4 @@ export default function ProductDetailPage() {
     </div>
   );
 }
+
