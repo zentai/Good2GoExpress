@@ -9,7 +9,7 @@ import { mockProducts } from '@/data/products';
 import type { Product, OrderItem } from '@/lib/types';
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
-import { X, Plus, ShoppingBag, ArrowLeft, ArrowRight, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react';
+import { X, Plus, ShoppingBag, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const getProductIndexById = (id: string, products: Product[]): number => {
@@ -27,7 +27,7 @@ export default function SwipeViewPage() {
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [actionFeedback, setActionFeedback] = useState<'added' | 'skipped' | null>(null);
-  const [animationKey, setAnimationKey] = useState(0); // For re-triggering enter animation
+  const [animationKey, setAnimationKey] = useState(0);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
 
@@ -62,7 +62,8 @@ export default function SwipeViewPage() {
       setCurrentProduct(null);
     }
     setAnimationKey(prev => prev + 1);
-    setCurrentImageIndex(0); // Reset image index for new product
+    setCurrentImageIndex(0);
+    setIsDescriptionExpanded(false); // Ensure description is collapsed for new product
     setIsLoading(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]); // Only re-run if searchParams (productId) changes
@@ -83,12 +84,12 @@ export default function SwipeViewPage() {
   const advanceToNextProduct = useCallback(() => {
     setIsDescriptionExpanded(false);
     scrollSwipeContainerToTop();
-    setCurrentImageIndex(0); // Reset image index for the new product
+    setCurrentImageIndex(0);
     
     setCurrentIndex(prevIndex => {
       const nextIdx = prevIndex + 1;
       if (nextIdx >= allProducts.length) {
-        router.push('/checkout'); // No toast here
+        router.push('/checkout'); 
         return prevIndex; 
       }
       setCurrentProduct(allProducts[nextIdx]);
@@ -117,8 +118,8 @@ export default function SwipeViewPage() {
     setTimeout(() => {
       advanceToNextProduct();
       setActionFeedback(null);
-    }, 300); // Animation duration
-  }, [currentProduct, advanceToNextProduct, isItemInTray]);
+    }, 300);
+  }, [currentProduct, advanceToNextProduct, isItemInTray, trayItems]);
 
   const handleSkip = useCallback(() => {
     if (!currentProduct) return;
@@ -126,11 +127,10 @@ export default function SwipeViewPage() {
     setTimeout(() => {
       advanceToNextProduct();
       setActionFeedback(null);
-    }, 300); // Animation duration
+    }, 300);
   }, [currentProduct, advanceToNextProduct]);
 
-  const toggleDescription = useCallback((e?: React.MouseEvent) => {
-    if (e) e.stopPropagation(); 
+  const toggleDescription = useCallback(() => {
     const nextState = !isDescriptionExpanded;
     setIsDescriptionExpanded(nextState);
     if (!nextState) { 
@@ -138,33 +138,23 @@ export default function SwipeViewPage() {
     }
   }, [isDescriptionExpanded, scrollSwipeContainerToTop]);
   
-  const collapseDescription = useCallback((e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    if (isDescriptionExpanded) {
-      setIsDescriptionExpanded(false);
-      scrollSwipeContainerToTop();
-    }
-  }, [isDescriptionExpanded, scrollSwipeContainerToTop]);
-
 
   const swipeHandlers = useSwipeable({
     onSwipedLeft: (eventData) => {
-      if(isDescriptionExpanded) return; // Prevent swipe if description is expanded
       handleSkip();
     },
     onSwipedRight: (eventData) => {
-      if(isDescriptionExpanded) return;
       handleAddToPack();
     },
     onSwipedUp: () => {
-      if (isDescriptionExpanded) return;
+      if (isDescriptionExpanded) return; // Disable if description is expanded
       router.push('/checkout');
     },
     onSwipedDown: () => {
-      if (isDescriptionExpanded) return;
+      if (isDescriptionExpanded) return; // Disable if description is expanded
       router.push('/');
     },
-    preventScrollOnSwipe: !isDescriptionExpanded,
+    preventScrollOnSwipe: !isDescriptionExpanded, // Allow native scroll when description is expanded
     trackMouse: true,
     delta: 10,
   });
@@ -213,6 +203,7 @@ export default function SwipeViewPage() {
           isDescriptionExpanded ? "overflow-y-auto justify-start" : "overflow-hidden justify-center"
         )}
         {...swipeHandlers}
+        // Removed onClick={isDescriptionExpanded ? collapseDescription : undefined}
       >
         {currentProduct && (
           <div 
@@ -225,14 +216,14 @@ export default function SwipeViewPage() {
           >
             <div 
               className="relative w-full aspect-[3/4] max-h-[65vh] bg-muted rounded-xl shadow-2xl overflow-hidden group"
-              onClick={isDescriptionExpanded ? collapseDescription : undefined}
+              // Removed onClick related to description collapse from image container
             >
               <Image
                 src={currentProduct.imageUrls[currentImageIndex]}
                 alt={currentProduct.name}
                 fill
                 priority
-                className="object-cover pointer-events-none" // pointer-events-none allows clicks to pass to overlays
+                className="object-cover pointer-events-none" 
                 data-ai-hint={currentProduct.dataAiHint || "product image"}
               />
               {hasMultipleImages && (
@@ -293,10 +284,10 @@ export default function SwipeViewPage() {
             </div>
 
             <div
-              className="w-full p-4 -mt-5 relative z-20"
-              onClick={!isDescriptionExpanded ? toggleDescription : undefined} 
+              className="w-full p-4 -mt-5 relative z-20 cursor-pointer"
+              onClick={toggleDescription} // Click this entire block to toggle
             >
-              <div className={cn("p-4 bg-card rounded-lg shadow-lg", !isDescriptionExpanded && "cursor-pointer")}>
+              <div className={cn("p-4 bg-card rounded-lg shadow-lg")}>
                 <div className="flex justify-between items-start">
                   <h2 className="text-lg font-bold text-foreground mr-2">{currentProduct.name}</h2>
                   <p className="text-lg font-bold text-primary whitespace-nowrap">RM {currentProduct.price.toFixed(2)}</p>
@@ -310,7 +301,7 @@ export default function SwipeViewPage() {
                   ) : (
                     <div
                       className="whitespace-pre-line text-xs leading-relaxed pt-2 max-h-[140px] overflow-y-auto p-1 border rounded-md bg-background"
-                      onClick={(e) => e.stopPropagation()} 
+                      onClick={(e) => e.stopPropagation()} // Prevent click on scrollable content from re-toggling
                       onTouchStart={(e) => e.stopPropagation()} 
                       onMouseDown={(e) => e.stopPropagation()}
                     >
@@ -360,3 +351,4 @@ export default function SwipeViewPage() {
     </div>
   );
 }
+
