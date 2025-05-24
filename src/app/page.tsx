@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Header from '@/components/Header';
 import ProductGrid from '@/components/ProductGrid';
 import { mockProducts } from '@/data/products';
@@ -38,20 +38,22 @@ export default function HomePage() {
           }
         } catch (error) {
           console.error("Failed to parse tray from localStorage on HomePage mount:", error);
-          localStorage.removeItem('good2go_cart');
+          localStorage.removeItem('good2go_cart'); // Clear corrupted data
         }
       }
     }
   }, []);
 
-  const handleToggleTrayItem = (product: Product) => {
+  const handleToggleTrayItem = useCallback((product: Product) => {
     setTrayItems(prevItems => {
       const existingItemIndex = prevItems.findIndex(item => item.productId === product.id);
       let updatedItems;
 
       if (existingItemIndex > -1) {
+        // Item exists, remove it
         updatedItems = prevItems.filter(item => item.productId !== product.id);
       } else {
+        // Item doesn't exist, add it with quantity 1
         updatedItems = [...prevItems, { productId: product.id, name: product.name, price: product.price, quantity: 1 }];
       }
       
@@ -60,6 +62,14 @@ export default function HomePage() {
       }
       return updatedItems;
     });
+  }, []);
+
+  const handleClearTray = () => {
+    setTrayItems([]);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('good2go_cart');
+    }
+    // No toast for clearing as per prior request to remove toasts for add/remove actions
   };
 
   const filteredProducts = selectedCategory === "all"
@@ -69,7 +79,7 @@ export default function HomePage() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
-      <main className="flex-grow container mx-auto px-0 xs:px-2 sm:px-4 py-4 pb-28">
+      <main className="flex-grow container mx-auto px-0 xs:px-2 sm:px-4 py-4 pb-28"> {/* Added pb-28 for FloatingCheckoutBar */}
         <div className="px-2 sm:px-0 mb-6">
           <ScrollArea className="w-full whitespace-nowrap rounded-md">
             <div className="flex w-max space-x-2 p-1.5">
@@ -80,8 +90,8 @@ export default function HomePage() {
                   className={cn(
                     "rounded-full h-9 px-4 text-sm shadow-sm",
                     selectedCategory === category.slug
-                      ? "bg-primary text-primary-foreground hover:bg-primary/90" // Active state (using primary)
-                      : "bg-background text-primary border-primary hover:bg-primary/10" // Inactive state
+                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                      : "bg-card text-primary border-primary hover:bg-primary/10"
                   )}
                   onClick={() => setSelectedCategory(category.slug)}
                 >
@@ -99,12 +109,13 @@ export default function HomePage() {
           trayItems={trayItems} 
         />
       </main>
-      <FloatingCheckoutBar trayItems={trayItems} />
+      <FloatingCheckoutBar trayItems={trayItems} onClearTray={handleClearTray} />
       <footer className="bg-muted text-center py-4 text-sm text-muted-foreground border-t">
         {currentYear !== null ? (
           <p>&copy; {currentYear} Good2Go Express. All rights reserved.</p>
         ) : (
-          <p>&copy; Good2Go Express. All rights reserved.</p>
+          // Fallback or loading state for the year
+          <p>&copy; Good2Go Express. All rights reserved.</p> 
         )}
       </footer>
     </div>
