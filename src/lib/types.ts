@@ -24,8 +24,8 @@ export interface Product {
   name: string;
   price: number;
   description: string;
-  summary?: string; // New field for one-line emoji summary
-  imageUrl: string;
+  summary?: string;
+  imageUrls: string[]; // Changed from imageUrl: string
   category: ProductCategorySlug;
   dataAiHint: string;
   badge?: ProductBadge;

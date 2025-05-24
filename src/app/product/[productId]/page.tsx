@@ -6,24 +6,24 @@ import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { mockProducts } from '@/data/products';
 import type { Product, OrderItem } from '@/lib/types';
-// Removed: import Header from '@/components/Header'; // Not explicitly used, top bar is custom
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Heart, PlusCircle, CheckCircle, ShoppingBag } from 'lucide-react';
-// Removed: import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 export default function ProductDetailPage() {
   const router = useRouter();
   const params = useParams();
-  // Removed: const { toast } = useToast();
   const productId = params.productId as string;
 
   const [product, setProduct] = useState<Product | null>(null);
   const [trayItems, setTrayItems] = useState<OrderItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // Add state for current image index if you plan to implement a carousel here too
+  // const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {
+    setIsLoading(true);
     const savedTray = localStorage.getItem('good2go_cart');
     if (savedTray) {
       try {
@@ -33,19 +33,18 @@ export default function ProductDetailPage() {
         setTrayItems([]);
       }
     }
-    setIsLoading(false);
-  }, []);
-
-  useEffect(() => {
+    
     if (productId) {
       const foundProduct = mockProducts.find((p) => p.id === productId);
       setProduct(foundProduct || null);
     }
+    setIsLoading(false);
   }, [productId]);
 
   useEffect(() => {
+    // Save trayItems to localStorage whenever it changes, but only after initial load
     if (!isLoading && (trayItems.length > 0 || localStorage.getItem('good2go_cart') !== null)) {
-      localStorage.setItem('good2go_cart', JSON.stringify(trayItems));
+        localStorage.setItem('good2go_cart', JSON.stringify(trayItems));
     }
   }, [trayItems, isLoading]);
 
@@ -67,7 +66,6 @@ export default function ProductDetailPage() {
         updatedItems = prevItems.filter(
           (item) => item.productId !== product.id
         );
-        // Removed toast
       } else {
         updatedItems = [
           ...prevItems,
@@ -78,7 +76,6 @@ export default function ProductDetailPage() {
             quantity: 1,
           },
         ];
-        // Removed toast
       }
       return updatedItems;
     });
@@ -94,7 +91,7 @@ export default function ProductDetailPage() {
     }
   };
 
-  if (isLoading && !product) { // Combined condition to show loading only if product isn't set yet
+  if (isLoading && !product) {
     return (
       <div className="flex flex-col min-h-screen bg-background">
         <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-md shadow-sm">
@@ -154,14 +151,18 @@ export default function ProductDetailPage() {
 
       <main className="flex-grow container mx-auto px-0 sm:px-4">
         <div className="relative w-full aspect-[1/1] sm:aspect-square md:aspect-[3/2] max-h-[60vh] bg-muted overflow-hidden">
-          <Image
-            src={product.imageUrl}
-            alt={product.name}
-            fill
-            priority
-            className="object-cover"
-            data-ai-hint={product.dataAiHint || "product image"}
-          />
+          {product.imageUrls && product.imageUrls.length > 0 ? (
+            <Image
+              src={product.imageUrls[0]} // Display the first image
+              alt={product.name}
+              fill
+              priority
+              className="object-cover"
+              data-ai-hint={product.dataAiHint || "product image"}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full bg-muted text-muted-foreground">No Image Available</div>
+          )}
         </div>
 
         <div className="p-4 space-y-3 border-b">
@@ -196,7 +197,7 @@ export default function ProductDetailPage() {
             {product.description || "Delicious and freshly prepared for you."}
           </p>
           <p className="text-sm text-foreground leading-relaxed mt-3">
-            <span className="font-medium">Includes:</span> 🥬 Fresh Greens, 🍅 Ripe Tomatoes, 🌾 Quality Grains... and a touch of love!
+            <span className="font-medium">Includes:</span> {product.summary || "🥬 Fresh Greens, 🍅 Ripe Tomatoes, 🌾 Quality Grains... and a touch of love!"}
           </p>
         </div>
       </main>

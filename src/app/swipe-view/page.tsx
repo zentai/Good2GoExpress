@@ -9,10 +9,8 @@ import { mockProducts } from '@/data/products';
 import type { Product, OrderItem } from '@/lib/types';
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
-import { X, Plus, ShoppingBag, ArrowLeft, ArrowRight } from 'lucide-react';
+import { X, Plus, ShoppingBag, ArrowLeft, ArrowRight, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-// Toasts were removed as per previous request
-// import { useToast } from '@/hooks/use-toast';
 
 const getProductIndexById = (id: string, products: Product[]): number => {
   return products.findIndex(p => p.id === id);
@@ -21,7 +19,6 @@ const getProductIndexById = (id: string, products: Product[]): number => {
 export default function SwipeViewPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  // const { toast } = useToast(); // Toasts removed
 
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -30,7 +27,9 @@ export default function SwipeViewPage() {
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [actionFeedback, setActionFeedback] = useState<'added' | 'skipped' | null>(null);
-  const [animationKey, setAnimationKey] = useState(0);
+  const [animationKey, setAnimationKey] = useState(0); // For re-triggering enter animation
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
 
   useEffect(() => {
     setIsLoading(true);
@@ -63,8 +62,10 @@ export default function SwipeViewPage() {
       setCurrentProduct(null);
     }
     setAnimationKey(prev => prev + 1);
+    setCurrentImageIndex(0); // Reset image index for new product
     setIsLoading(false);
-  }, [searchParams]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]); // Only re-run if searchParams (productId) changes
 
   useEffect(() => {
     if (!isLoading && (trayItems.length > 0 || localStorage.getItem('good2go_cart') !== null)) {
@@ -72,30 +73,34 @@ export default function SwipeViewPage() {
     }
   }, [trayItems, isLoading]);
 
-  const scrollSwipeContainerToTop = () => {
+  const scrollSwipeContainerToTop = useCallback(() => {
     const container = document.querySelector('.main-swipe-container');
     if (container) {
       container.scrollTop = 0;
     }
-  };
+  }, []);
 
   const advanceToNextProduct = useCallback(() => {
-    setIsDescriptionExpanded(false); // Collapse description for next card
-    scrollSwipeContainerToTop(); // Scroll to top for the new card view
+    setIsDescriptionExpanded(false);
+    scrollSwipeContainerToTop();
+    setCurrentImageIndex(0); // Reset image index for the new product
     
     setCurrentIndex(prevIndex => {
       const nextIdx = prevIndex + 1;
       if (nextIdx >= allProducts.length) {
-        // No toast for end of list - Toasts removed
-        router.push('/checkout');
+        router.push('/checkout'); // No toast here
         return prevIndex; 
       }
       setCurrentProduct(allProducts[nextIdx]);
       setAnimationKey(prev => prev + 1); 
       return nextIdx;
     });
-  }, [allProducts, router]);
+  }, [allProducts, router, scrollSwipeContainerToTop]);
 
+
+  const isItemInTray = useCallback((productId: string): boolean => {
+    return trayItems.some(item => item.productId === productId);
+  }, [trayItems]);
 
   const handleAddToPack = useCallback(() => {
     if (!currentProduct || isItemInTray(currentProduct.id)) return;
@@ -112,8 +117,8 @@ export default function SwipeViewPage() {
     setTimeout(() => {
       advanceToNextProduct();
       setActionFeedback(null);
-    }, 300);
-  }, [currentProduct, advanceToNextProduct, trayItems, isItemInTray]); // Added isItemInTray
+    }, 300); // Animation duration
+  }, [currentProduct, advanceToNextProduct, isItemInTray]);
 
   const handleSkip = useCallback(() => {
     if (!currentProduct) return;
@@ -121,17 +126,17 @@ export default function SwipeViewPage() {
     setTimeout(() => {
       advanceToNextProduct();
       setActionFeedback(null);
-    }, 300);
+    }, 300); // Animation duration
   }, [currentProduct, advanceToNextProduct]);
 
   const toggleDescription = useCallback((e?: React.MouseEvent) => {
     if (e) e.stopPropagation(); 
     const nextState = !isDescriptionExpanded;
     setIsDescriptionExpanded(nextState);
-    if (!nextState) { // If collapsing description
+    if (!nextState) { 
       scrollSwipeContainerToTop();
     }
-  }, [isDescriptionExpanded]);
+  }, [isDescriptionExpanded, scrollSwipeContainerToTop]);
   
   const collapseDescription = useCallback((e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -139,29 +144,44 @@ export default function SwipeViewPage() {
       setIsDescriptionExpanded(false);
       scrollSwipeContainerToTop();
     }
-  }, [isDescriptionExpanded]);
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  function isItemInTray(productId: string): boolean {
-    return trayItems.some(item => item.productId === productId);
-  }
+  }, [isDescriptionExpanded, scrollSwipeContainerToTop]);
 
 
   const swipeHandlers = useSwipeable({
-    onSwipedLeft: handleSkip,
-    onSwipedRight: handleAddToPack,
+    onSwipedLeft: (eventData) => {
+      if(isDescriptionExpanded) return; // Prevent swipe if description is expanded
+      handleSkip();
+    },
+    onSwipedRight: (eventData) => {
+      if(isDescriptionExpanded) return;
+      handleAddToPack();
+    },
     onSwipedUp: () => {
-      if (isDescriptionExpanded) return; // Allow native scroll when description expanded
+      if (isDescriptionExpanded) return;
       router.push('/checkout');
     },
     onSwipedDown: () => {
-      if (isDescriptionExpanded) return; // Allow native scroll when description expanded
+      if (isDescriptionExpanded) return;
       router.push('/');
     },
-    preventScrollOnSwipe: !isDescriptionExpanded, // Dynamically prevent scroll based on description state
+    preventScrollOnSwipe: !isDescriptionExpanded,
     trackMouse: true,
     delta: 10,
   });
+
+  const handleNextImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (currentProduct && currentProduct.imageUrls.length > 1) {
+      setCurrentImageIndex(prev => (prev + 1) % currentProduct.imageUrls.length);
+    }
+  };
+
+  const handlePrevImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (currentProduct && currentProduct.imageUrls.length > 1) {
+      setCurrentImageIndex(prev => (prev - 1 + currentProduct.imageUrls.length) % currentProduct.imageUrls.length);
+    }
+  };
 
   if (isLoading || !currentProduct) {
     return (
@@ -179,6 +199,8 @@ export default function SwipeViewPage() {
     cardAnimationClass = 'animate-slide-out-left';
   }
 
+  const hasMultipleImages = currentProduct.imageUrls && currentProduct.imageUrls.length > 1;
+
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden antialiased">
       <div className="fixed top-0 left-0 right-0 z-50 flex justify-center py-2 bg-transparent">
@@ -186,11 +208,11 @@ export default function SwipeViewPage() {
       </div>
 
       <div
-        {...swipeHandlers}
         className={cn(
-          "main-swipe-container flex-grow flex flex-col items-center pt-16 pb-28 relative touch-pan-y", // touch-pan-y to allow vertical scroll
+          "main-swipe-container flex-grow flex flex-col items-center pt-16 pb-28 relative",
           isDescriptionExpanded ? "overflow-y-auto justify-start" : "overflow-hidden justify-center"
         )}
+        {...swipeHandlers}
       >
         {currentProduct && (
           <div 
@@ -198,21 +220,44 @@ export default function SwipeViewPage() {
             className={cn(
               "w-full max-w-sm md:max-w-md flex flex-col items-center", 
               cardAnimationClass,
-              isDescriptionExpanded ? "pb-10" : "" // Add some padding at bottom when expanded
+              isDescriptionExpanded ? "pb-10" : "" 
             )}
           >
             <div 
-              className="relative w-full aspect-[3/4] max-h-[65vh] bg-muted rounded-xl shadow-2xl overflow-hidden"
+              className="relative w-full aspect-[3/4] max-h-[65vh] bg-muted rounded-xl shadow-2xl overflow-hidden group"
               onClick={isDescriptionExpanded ? collapseDescription : undefined}
             >
               <Image
-                src={currentProduct.imageUrl}
+                src={currentProduct.imageUrls[currentImageIndex]}
                 alt={currentProduct.name}
                 fill
                 priority
-                className="object-cover pointer-events-none"
+                className="object-cover pointer-events-none" // pointer-events-none allows clicks to pass to overlays
                 data-ai-hint={currentProduct.dataAiHint || "product image"}
               />
+              {hasMultipleImages && (
+                <>
+                  <div 
+                    className="absolute left-0 top-0 h-full w-1/2 z-10 cursor-pointer"
+                    onClick={handlePrevImage}
+                    aria-label="Previous image"
+                  >
+                    <div className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/30 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                       <ChevronLeft className="h-6 w-6 text-white" />
+                    </div>
+                  </div>
+                  <div 
+                    className="absolute right-0 top-0 h-full w-1/2 z-10 cursor-pointer"
+                    onClick={handleNextImage}
+                    aria-label="Next image"
+                  >
+                     <div className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/30 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                       <ChevronRightIcon className="h-6 w-6 text-white" />
+                    </div>
+                  </div>
+                </>
+              )}
+
               {currentProduct.badge && (
                 <div
                   className={cn(
@@ -225,6 +270,24 @@ export default function SwipeViewPage() {
                   )}
                 >
                   {currentProduct.badge.text}
+                </div>
+              )}
+               {hasMultipleImages && (
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex space-x-2">
+                  {currentProduct.imageUrls.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCurrentImageIndex(index);
+                      }}
+                      className={cn(
+                        "h-2 w-2 rounded-full transition-all duration-300",
+                        currentImageIndex === index ? "bg-white scale-125" : "bg-white/50 hover:bg-white/75"
+                      )}
+                      aria-label={`Go to image ${index + 1}`}
+                    />
+                  ))}
                 </div>
               )}
             </div>
@@ -246,7 +309,7 @@ export default function SwipeViewPage() {
                     </p>
                   ) : (
                     <div
-                      className="whitespace-pre-line text-xs leading-relaxed pt-2" // Removed max-h, overflow, specific bg/border
+                      className="whitespace-pre-line text-xs leading-relaxed pt-2 max-h-[140px] overflow-y-auto p-1 border rounded-md bg-background"
                       onClick={(e) => e.stopPropagation()} 
                       onTouchStart={(e) => e.stopPropagation()} 
                       onMouseDown={(e) => e.stopPropagation()}

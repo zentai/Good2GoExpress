@@ -3,12 +3,11 @@
 
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import type { Product, OrderItem } from '@/lib/types'; // Assuming OrderItem might be relevant if card shows quantity, but here it's just isInList
+import type { Product, OrderItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Heart } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-// Removed: import { useToast } from '@/hooks/use-toast';
 
 interface ProductCardProps {
   product: Product;
@@ -19,17 +18,16 @@ interface ProductCardProps {
 const ProductCard = ({ product, onToggleItemInList, isInList }: ProductCardProps) => {
   const [clientMounted, setClientMounted] = useState(false);
   const router = useRouter();
-  // Removed: const { toast } = useToast();
 
   useEffect(() => {
     setClientMounted(true);
   }, []);
 
   const handleCardClick = (e: React.MouseEvent) => {
-    // Prevent navigation if the click was on the heart button
     if ((e.target as HTMLElement).closest('button[aria-label*="list"]')) {
       return;
     }
+    // Navigate to swipe view starting with this product
     router.push(`/swipe-view?productId=${product.id}`);
   };
 
@@ -37,7 +35,6 @@ const ProductCard = ({ product, onToggleItemInList, isInList }: ProductCardProps
     e.stopPropagation();
     e.preventDefault();
     onToggleItemInList(product);
-    // Removed toast notifications
   };
 
   if (!clientMounted) {
@@ -62,7 +59,7 @@ const ProductCard = ({ product, onToggleItemInList, isInList }: ProductCardProps
       onClick={handleCardClick}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleCardClick()}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleCardClick(e as any)}
       aria-label={`View details for ${product.name}`}
       style={{ height: '244px' }}
     >
@@ -96,13 +93,13 @@ const ProductCard = ({ product, onToggleItemInList, isInList }: ProductCardProps
         </Button>
 
         <Image
-          src={product.imageUrl}
+          src={product.imageUrls[0]} // Use the first image for the card
           alt={product.name}
           fill
           sizes="(max-width: 374px) 100vw, (max-width: 599px) 50vw, 33vw"
           className="object-cover group-hover:scale-105 transition-transform duration-300 ease-in-out"
           data-ai-hint={product.dataAiHint || product.name.split(" ").slice(0, 2).join(" ")}
-          priority={product.id === '1' || product.id === '2'}
+          priority={product.id === 'sa1' || product.id === 'tq1'} // Example priority products
         />
       </div>
 
