@@ -10,7 +10,7 @@ import type { Product, OrderItem } from '@/lib/types';
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { X, Plus, ShoppingBag } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast'; // Keep for "end of list" for now, but will remove action toasts
 import { cn } from '@/lib/utils';
 
 const getProductIndexById = (id: string, products: Product[]): number => {
@@ -20,9 +20,9 @@ const getProductIndexById = (id: string, products: Product[]): number => {
 export default function SwipeViewPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { toast } = useToast();
+  const { toast } = useToast(); // Will only be used for "end of list" or critical errors
 
-  const [allProducts] = useState<Product[]>(mockProducts); // Removed setAllProducts as it's not used
+  const [allProducts] = useState<Product[]>(mockProducts);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [trayItems, setTrayItems] = useState<OrderItem[]>([]);
@@ -58,10 +58,15 @@ export default function SwipeViewPage() {
       }
     }
     setCurrentIndex(initialIndex);
-    setCurrentProduct(allProducts[initialIndex]);
+    if (allProducts.length > 0) {
+      setCurrentProduct(allProducts[initialIndex] || allProducts[0]);
+    } else {
+      setCurrentProduct(null);
+    }
     setAnimationKey(prev => prev + 1);
     setIsLoading(false);
-  }, [searchParams, allProducts]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, allProducts]); // allProducts should be stable
 
 
   useEffect(() => {
@@ -71,29 +76,25 @@ export default function SwipeViewPage() {
   }, [trayItems, isLoading]);
 
   const advanceToNextProduct = useCallback(() => {
-    setIsDescriptionExpanded(false); 
-    
+    setIsDescriptionExpanded(false);
+
     setCurrentIndex(prevIndex => {
       const nextIdx = prevIndex + 1;
       if (nextIdx >= allProducts.length) {
-        toast({
-          title: "🎉 You've seen all items!",
-          description: "Ready to pack your choices?",
-          duration: 3000,
-        });
-        router.push('/checkout'); 
-        return prevIndex; 
+        // Removed "end of list" toast
+        router.push('/checkout');
+        return prevIndex;
       }
       setCurrentProduct(allProducts[nextIdx]);
       setAnimationKey(prev => prev + 1);
       return nextIdx;
     });
-  }, [allProducts, router, toast]);
+  }, [allProducts, router]);
 
 
   const handleAddToPack = useCallback(() => {
     if (!currentProduct || isItemInTray(currentProduct.id)) return;
-    
+
     setActionFeedback('added');
 
     setTrayItems(prevItems => {
@@ -103,30 +104,25 @@ export default function SwipeViewPage() {
         price: currentProduct.price,
         quantity: 1,
       };
-      toast({
-        title: `➕ "${currentProduct.name}" added to pack!`,
-        duration: 1500,
-      });
+      // Removed toast notification
       return [...prevItems, newItem];
     });
     setTimeout(() => {
-        advanceToNextProduct();
-        setActionFeedback(null);
-    }, 500); 
-  }, [currentProduct, toast, advanceToNextProduct, trayItems]); // trayItems added to dependency array
+      advanceToNextProduct();
+      setActionFeedback(null);
+    }, 500);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProduct, advanceToNextProduct, trayItems]);
 
   const handleSkip = useCallback(() => {
     if (!currentProduct) return;
     setActionFeedback('skipped');
-    toast({
-      title: `⏭️ Skipped "${currentProduct.name}"`,
-      duration: 1500,
-    });
-     setTimeout(() => {
-        advanceToNextProduct();
-        setActionFeedback(null);
-    }, 500); 
-  }, [currentProduct, toast, advanceToNextProduct]);
+    // Removed toast notification
+    setTimeout(() => {
+      advanceToNextProduct();
+      setActionFeedback(null);
+    }, 500);
+  }, [currentProduct, advanceToNextProduct]);
 
   const toggleDescription = () => setIsDescriptionExpanded(!isDescriptionExpanded);
 
@@ -136,15 +132,15 @@ export default function SwipeViewPage() {
   );
 
   const swipeHandlers = useSwipeable({
-    onSwipedLeft: () => handleSkip(),
-    onSwipedRight: () => handleAddToPack(),
-    onSwipedUp: () => router.push('/checkout'),
-    onSwipedDown: () => router.push('/'),
+    onSwipedLeft: (eventData) => { eventData.event.stopPropagation(); handleSkip(); },
+    onSwipedRight: (eventData) => { eventData.event.stopPropagation(); handleAddToPack(); },
+    onSwipedUp: (eventData) => { eventData.event.stopPropagation(); router.push('/checkout'); },
+    onSwipedDown: (eventData) => { eventData.event.stopPropagation(); router.push('/'); },
     preventScrollOnSwipe: true,
     trackMouse: true,
-    delta: 10, // Min distance in pixels to constitute a swipe
+    delta: 10,
   });
-  
+
   if (isLoading || !currentProduct) {
     return (
       <div className="flex flex-col min-h-screen items-center justify-center bg-background">
@@ -154,13 +150,13 @@ export default function SwipeViewPage() {
     );
   }
 
-  const currentProductEmoji = 
+  const currentProductEmoji =
     currentProduct.name.toLowerCase().includes('burger') ? '🍔' :
-    currentProduct.name.toLowerCase().includes('wrap') || currentProduct.name.toLowerCase().includes('bowl') || currentProduct.name.toLowerCase().includes('salad') ? '🍱' :
-    currentProduct.name.toLowerCase().includes('smoothie') || currentProduct.name.toLowerCase().includes('brew') || currentProduct.name.toLowerCase().includes('drink') ? '🥤' :
-    '🛍️';
+      currentProduct.name.toLowerCase().includes('wrap') || currentProduct.name.toLowerCase().includes('bowl') || currentProduct.name.toLowerCase().includes('salad') ? '🍱' :
+        currentProduct.name.toLowerCase().includes('smoothie') || currentProduct.name.toLowerCase().includes('brew') || currentProduct.name.toLowerCase().includes('drink') ? '🥤' :
+          '🛍️';
 
-  let cardAnimationClass = 'animate-fade-in'; 
+  let cardAnimationClass = 'animate-fade-in';
   if (actionFeedback === 'added') {
     cardAnimationClass = 'animate-slide-out-right';
   } else if (actionFeedback === 'skipped') {
@@ -171,12 +167,12 @@ export default function SwipeViewPage() {
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden antialiased">
       <div className="fixed top-0 left-0 right-0 z-50 flex justify-center py-2 bg-transparent">
-         <Header />
+        <Header />
       </div>
 
-      <div 
-        {...swipeHandlers} 
-        className="flex-grow flex flex-col items-center justify-center pt-16 pb-28 relative touch-none" /* touch-none to prevent browser default touch actions like scroll/zoom */
+      <div
+        {...swipeHandlers}
+        className="flex-grow flex flex-col items-center justify-center pt-16 pb-28 relative touch-none"
       >
         {currentProduct && (
           <div key={animationKey} className={cn("w-full max-w-sm md:max-w-md flex flex-col items-center", cardAnimationClass)}>
@@ -186,35 +182,35 @@ export default function SwipeViewPage() {
                 alt={currentProduct.name}
                 fill
                 priority
-                className="object-cover pointer-events-none" /* pointer-events-none so image doesn't interfere with swipe on parent */
+                className="object-cover pointer-events-none"
                 data-ai-hint={currentProduct.dataAiHint || "product image"}
               />
               {currentProduct.badge && (
-              <div
+                <div
                   className={cn(
-                  "absolute top-3 left-3 z-10 px-3 py-1 rounded-full text-xs font-semibold shadow-lg",
-                  currentProduct.badge.type === 'hot' && "bg-red-600 text-white",
-                  currentProduct.badge.type === 'limited' && "bg-yellow-500 text-gray-900",
-                  currentProduct.badge.type === 'signature' && "bg-primary text-primary-foreground",
-                  currentProduct.badge.type === 'new' && "bg-blue-600 text-white",
-                  currentProduct.badge.type === 'custom' && "bg-slate-700 text-white"
+                    "absolute top-3 left-3 z-10 px-3 py-1 rounded-full text-xs font-semibold shadow-lg",
+                    currentProduct.badge.type === 'hot' && "bg-red-600 text-white",
+                    currentProduct.badge.type === 'limited' && "bg-yellow-500 text-gray-900",
+                    currentProduct.badge.type === 'signature' && "bg-primary text-primary-foreground",
+                    currentProduct.badge.type === 'new' && "bg-blue-600 text-white",
+                    currentProduct.badge.type === 'custom' && "bg-slate-700 text-white"
                   )}
-              >
+                >
                   {currentProduct.badge.text}
-              </div>
+                </div>
               )}
             </div>
-            
-            <div 
-              className="w-full p-4 -mt-5 relative z-20" 
-              onClick={toggleDescription} /* Keep click for description toggle, swipe handler is on parent */
+
+            <div
+              className="w-full p-4 -mt-5 relative z-20"
+              onClick={toggleDescription}
             >
-              <div className="p-4 bg-card rounded-lg shadow-lg cursor-pointer"> {/* Add cursor-pointer here */}
+              <div className="p-4 bg-card rounded-lg shadow-lg cursor-pointer">
                 <div className="flex justify-between items-start">
                   <h2 className="text-lg font-bold text-foreground mr-2">{currentProduct.name}</h2>
                   <p className="text-lg font-bold text-primary whitespace-nowrap">RM {currentProduct.price.toFixed(2)}</p>
                 </div>
-                
+
                 <div className="mt-2 text-sm text-muted-foreground">
                   <p className={cn(!isDescriptionExpanded && "line-clamp-1")}>
                     {currentProduct.description || "Delicious and freshly prepared for you."}
@@ -245,8 +241,8 @@ export default function SwipeViewPage() {
           <Button
             size="lg"
             className={cn(
-                "flex-1 h-14 rounded-full shadow-lg text-base font-medium text-accent-foreground active:scale-95",
-                isItemInTray(currentProduct.id) ? "bg-green-600 hover:bg-green-700" : "bg-accent hover:bg-accent/90"
+              "flex-1 h-14 rounded-full shadow-lg text-base font-medium text-accent-foreground active:scale-95",
+              isItemInTray(currentProduct.id) ? "bg-green-600 hover:bg-green-700" : "bg-accent hover:bg-accent/90"
             )}
             onClick={(e) => { e.stopPropagation(); handleAddToPack(); }}
             disabled={isItemInTray(currentProduct.id)}

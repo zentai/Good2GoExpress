@@ -14,12 +14,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Package, Home as HomeIcon, ShoppingBag, CheckCircle, MessageSquare, PlusCircle, MinusCircle, ArrowLeftCircle, Rocket, CalendarDays, Clock, ShoppingCart, Edit3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast'; // Keep for critical validation toasts
 import { format, addDays, isSameDay, addHours, setHours, setMinutes, setSeconds, setMilliseconds, isBefore, parseISO, startOfDay } from 'date-fns';
 
-const WHATSAPP_PHONE_NUMBER = '+60187693136'; // Replace with your actual number
+const WHATSAPP_PHONE_NUMBER = '+60187693136';
 const LOCALSTORAGE_UNIT_NUMBER_KEY = 'good2go_unitNumber';
-const LOCALSTORAGE_SKIP_PREVIEW_KEY = 'good2go_skipPreview';
+// LOCALSTORAGE_SKIP_PREVIEW_KEY is removed
 const PICKUP_LEAD_TIME_HOURS = 4;
 
 interface TrayItemDisplayProps {
@@ -36,7 +36,7 @@ function TrayItemDisplay({ item, onUpdateQuantity }: TrayItemDisplayProps) {
     onUpdateQuantity(item.productId, item.quantity - 1);
   };
 
-  let emoji = '🛍️'; // Default
+  let emoji = '🛍️';
   if (item.name.toLowerCase().includes('burger')) emoji = '🍔';
   else if (item.name.toLowerCase().includes('wrap') || item.name.toLowerCase().includes('bowl') || item.name.toLowerCase().includes('salad')) emoji = '🍱';
   else if (item.name.toLowerCase().includes('smoothie') || item.name.toLowerCase().includes('brew') || item.name.toLowerCase().includes('drink')) emoji = '🥤';
@@ -59,14 +59,13 @@ function TrayItemDisplay({ item, onUpdateQuantity }: TrayItemDisplayProps) {
           </Button>
         </div>
       </div>
-      <p className="text-sm text-muted-foreground pl-10"> {/* Indent to align with name roughly */}
+      <p className="text-sm text-muted-foreground pl-10">
         RM {item.price.toFixed(2)} &times; {item.quantity} = <span className="font-medium text-foreground">RM {(item.quantity * item.price).toFixed(2)}</span>
       </p>
     </div>
   );
 }
 
-// Simulated Firebase submission function
 async function submitOrderToFirebase(orderData: {
   items: OrderItem[];
   totalAmount: number;
@@ -76,9 +75,7 @@ async function submitOrderToFirebase(orderData: {
   timestamp: string;
 }) {
   console.log("Simulating order submission to Firebase for packing:", orderData);
-  // In a real app, you'd use Firebase SDK here to write to Firestore or Realtime Database
-  // For example: await addDoc(collection(db, "packingLists"), orderData);
-  await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
+  await new Promise(resolve => setTimeout(resolve, 1000));
   return { success: true, orderId: `mock_pack_list_${Date.now()}` };
 }
 
@@ -91,7 +88,7 @@ interface PackingPageContentProps {
     count: number,
     unit: string,
     sendWhatsApp: boolean,
-    availableSlotsForDate: string[], 
+    availableSlotsForDate: string[],
   }) => void;
   initialTrayItems: OrderItem[];
   initialUnitNumber: string;
@@ -109,7 +106,7 @@ function PackingPageContent({
   initialSelectedPickupTime,
 }: PackingPageContentProps) {
   const router = useRouter();
-  const { toast } = useToast();
+  const { toast } = useToast(); // Kept for critical feedback, e.g. validation.
   const [trayItems, setTrayItems] = useState<OrderItem[]>(initialTrayItems);
   const [totalAmount, setTotalAmount] = useState(0);
   const [totalItemCount, setTotalItemCount] = useState(0);
@@ -122,8 +119,8 @@ function PackingPageContent({
 
   const availableDates = useMemo(() => {
     const dates = [];
-    const today = startOfDay(new Date()); 
-    for (let i = 0; i < 3; i++) { 
+    const today = startOfDay(new Date());
+    for (let i = 0; i < 3; i++) {
       dates.push(addDays(today, i));
     }
     return dates;
@@ -150,13 +147,13 @@ function PackingPageContent({
     if (selectedDate) {
       const newSlots = getAvailableTimeSlots(selectedDate);
       setAvailableSlotsForSelectedDate(newSlots);
-      
+
       if (newSlots.length > 0 && (!selectedPickupTime || !newSlots.includes(selectedPickupTime))) {
-        setSelectedPickupTime(newSlots[0]); 
+        setSelectedPickupTime(newSlots[0]);
       } else if (newSlots.length === 0 && selectedPickupTime) {
-        setSelectedPickupTime(''); 
+        setSelectedPickupTime('');
       } else if (newSlots.length > 0 && newSlots.includes(initialSelectedPickupTime) && !selectedPickupTime) {
-        setSelectedPickupTime(initialSelectedPickupTime); // Restore initial if valid for new date
+        setSelectedPickupTime(initialSelectedPickupTime);
       }
     } else {
       setAvailableSlotsForSelectedDate([]);
@@ -171,7 +168,6 @@ function PackingPageContent({
     setUnitNumber(initialUnitNumber);
     setSendViaWhatsApp(initialSendViaWhatsApp);
     setSelectedDate(initialSelectedDate);
-    // setSelectedPickupTime is handled by the effect above
     setIsLoading(false);
   }, [initialTrayItems, initialUnitNumber, initialSendViaWhatsApp, initialSelectedDate]);
 
@@ -193,9 +189,9 @@ function PackingPageContent({
   useEffect(() => {
     const totals = updateTotals(trayItems);
     if (typeof window !== 'undefined' && !isLoading) {
-        localStorage.setItem('good2go_cart', JSON.stringify(trayItems));
+      localStorage.setItem('good2go_cart', JSON.stringify(trayItems));
     }
-    
+
     onStateChangeForParent({
       items: trayItems,
       pickupDate: selectedDate,
@@ -208,6 +204,9 @@ function PackingPageContent({
     });
 
     if (trayItems.length === 0 && !isLoading) {
+      // This toast might be acceptable as it's navigational feedback, not item action feedback.
+      // However, adhering strictly to "移除所有弹窗或 Toast 提示" in the context of item actions,
+      // this should be reviewed. For now, keeping it as it aids usability.
       toast({
         title: "Your List is Empty",
         description: "Your packing list is empty. Add some items first!",
@@ -225,11 +224,7 @@ function PackingPageContent({
       let updatedItems;
       if (newQuantity <= 0) {
         updatedItems = currentItems.filter(item => item.productId !== productId);
-        toast({
-          title: "Item Removed",
-          description: `${currentItems.find(item => item.productId === productId)?.name} removed from your packing list.`,
-          duration: 2000,
-        });
+        // Removed "Item Removed" toast as per request to remove item action toasts
       } else {
         updatedItems = currentItems.map(item =>
           item.productId === productId ? { ...item, quantity: newQuantity } : item
@@ -343,7 +338,7 @@ function PackingPageContent({
             className="h-12 text-base rounded-md border-input focus:border-primary focus:ring-primary"
           />
         </div>
-        
+
         <Separator />
 
         <div className="flex items-center space-x-2 pt-3">
@@ -377,9 +372,10 @@ export default function PackingPage() {
   const [sendViaWhatsAppGlobal, setSendViaWhatsAppGlobal] = useState(true);
   const [isSubmittingGlobal, setIsSubmittingGlobal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
-  const [skipPreviewNextTime, setSkipPreviewNextTime] = useState(false);
+  // skipPreviewNextTime state and related localStorage key are removed
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [availableSlotsForDateGlobal, setAvailableSlotsForDateGlobal] = useState<string[]>([]);
+  const [isFooterVisible, setIsFooterVisible] = useState(true);
 
 
   const router = useRouter();
@@ -388,7 +384,6 @@ export default function PackingPage() {
   useEffect(() => {
     let initialTray: OrderItem[] = [];
     let savedUnit = '';
-    let savedSkipPreview = false;
 
     if (typeof window !== 'undefined') {
       const trayData = localStorage.getItem('good2go_cart');
@@ -398,59 +393,57 @@ export default function PackingPage() {
         } catch { console.error("Failed to parse tray from localStorage"); initialTray = []; }
       }
       savedUnit = localStorage.getItem(LOCALSTORAGE_UNIT_NUMBER_KEY) || '';
-      savedSkipPreview = localStorage.getItem(LOCALSTORAGE_SKIP_PREVIEW_KEY) === 'true';
     }
-    
+
     setTrayItemsGlobal(initialTray);
     setUnitNumberGlobal(savedUnit);
-    setSkipPreviewNextTime(savedSkipPreview);
 
     const initialTotal = initialTray.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const initialItemCount = initialTray.reduce((sum, item) => sum + item.quantity, 0);
     setTotalAmountGlobal(initialTotal);
     setTotalItemCountGlobal(initialItemCount);
 
-    if (initialTray.length === 0 && (router as any).pathname === '/checkout') { // Ensure router is available
-        toast({
-          title: "Your Packing List is Empty",
-          description: "Let's add some items first!",
-          variant: "destructive",
-          duration: 3000,
-        });
-        router.push('/');
-        return; // Exit early if redirecting
+    if (initialTray.length === 0 && (router as any).pathname === '/checkout') {
+      // Critical feedback toast, not item action toast.
+      toast({
+        title: "Your Packing List is Empty",
+        description: "Let's add some items first!",
+        variant: "destructive",
+        duration: 3000,
+      });
+      router.push('/');
+      return;
     }
-    setIsInitialLoading(false); // Set loading to false after initial setup and potential redirect
+    setIsInitialLoading(false);
 
-    // Event listener for storage changes (e.g. from other tabs)
     const handleStorageChange = (event: StorageEvent) => {
-        if (event.key === 'good2go_cart' || event.key === null) { // event.key === null for localStorage.clear()
-            const currentCartData = localStorage.getItem('good2go_cart');
-            let updatedCart: OrderItem[] = [];
-            if (currentCartData) {
-                try {
-                    updatedCart = JSON.parse(currentCartData);
-                } catch { /* ignore parse error */ }
-            }
-            setTrayItemsGlobal(updatedCart); // Update state based on localStorage
-            const newTotal = updatedCart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-            const newCount = updatedCart.reduce((sum, item) => sum + item.quantity, 0);
-            setTotalAmountGlobal(newTotal);
-            setTotalItemCountGlobal(newCount);
+      if (event.key === 'good2go_cart' || event.key === null) {
+        const currentCartData = localStorage.getItem('good2go_cart');
+        let updatedCart: OrderItem[] = [];
+        if (currentCartData) {
+          try {
+            updatedCart = JSON.parse(currentCartData);
+          } catch { /* ignore */ }
+        }
+        setTrayItemsGlobal(updatedCart);
+        const newTotal = updatedCart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        const newCount = updatedCart.reduce((sum, item) => sum + item.quantity, 0);
+        setTotalAmountGlobal(newTotal);
+        setTotalItemCountGlobal(newCount);
 
-            // If cart becomes empty while on checkout page, redirect
-            if (updatedCart.length === 0 && (router as any).pathname === '/checkout') {
-                toast({ title: "List Cleared", description: "Your packing list was cleared.", duration: 2000 });
-                router.push('/');
-            }
+        if (updatedCart.length === 0 && (router as any).pathname === '/checkout') {
+          // Critical feedback toast
+          toast({ title: "List Cleared", description: "Your packing list was cleared.", duration: 2000 });
+          router.push('/');
         }
-        if (event.key === LOCALSTORAGE_UNIT_NUMBER_KEY || event.key === null) {
-            setUnitNumberGlobal(localStorage.getItem(LOCALSTORAGE_UNIT_NUMBER_KEY) || '');
-        }
+      }
+      if (event.key === LOCALSTORAGE_UNIT_NUMBER_KEY || event.key === null) {
+        setUnitNumberGlobal(localStorage.getItem(LOCALSTORAGE_UNIT_NUMBER_KEY) || '');
+      }
     };
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange); // Cleanup
-  }, [router, toast]); // Dependencies for initial load effect
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [router, toast]);
 
 
   const handleContentStateChange = useCallback((data: {
@@ -475,6 +468,7 @@ export default function PackingPage() {
 
   const handleFinalSubmit = async () => {
     setShowPreviewModal(false);
+    setIsFooterVisible(true); // Ensure footer is visible after modal closes
     setIsSubmittingGlobal(true);
 
     const orderDataForFirebase = {
@@ -492,7 +486,6 @@ export default function PackingPage() {
         throw new Error("Failed to submit packing list to backend.");
       }
 
-      // Prepare data for confirmation page and WhatsApp
       const queryParams = new URLSearchParams({
         itemsCount: totalItemCountGlobal.toString(),
         totalAmount: totalAmountGlobal.toFixed(2),
@@ -502,7 +495,7 @@ export default function PackingPage() {
         orderId: firebaseResponse.orderId,
       });
 
-      localStorage.removeItem('good2go_cart'); // Clear cart after successful submission logic starts
+      localStorage.removeItem('good2go_cart');
 
       if (sendViaWhatsAppGlobal) {
         let packingDetails = "Hi Good2Go Express! I've packed my stash:\n\n";
@@ -521,14 +514,12 @@ export default function PackingPage() {
         packingDetails += `Ref: ${firebaseResponse.orderId}\n\nReady for pickup!`;
 
         const whatsappUrl = `https://wa.me/${WHATSAPP_PHONE_NUMBER}?text=${encodeURIComponent(packingDetails)}`;
-        
-        // Navigate to confirmation first, then open WhatsApp
+
         router.push(`/order-confirmation?${queryParams.toString()}`);
-        window.open(whatsappUrl, '_blank'); // Open WhatsApp in new tab
+        window.open(whatsappUrl, '_blank');
 
       } else {
-         // Navigate to confirmation page if WhatsApp is not selected
-         router.push(`/order-confirmation?${queryParams.toString()}`);
+        router.push(`/order-confirmation?${queryParams.toString()}`);
       }
 
     } catch (error) {
@@ -545,7 +536,6 @@ export default function PackingPage() {
   };
 
   const handleGoButtonClick = () => {
-    // Validations for proceeding
     if (trayItemsGlobal.length === 0) {
       toast({ title: "List Empty", description: "Your packing list is empty. Add some items first!", variant: "destructive" });
       return;
@@ -555,27 +545,17 @@ export default function PackingPage() {
       return;
     }
     if (availableSlotsForDateGlobal.length > 0 && !selectedPickupTimeGlobal) {
-        toast({ title: "Selection Needed", description: "Please select an available pickup time slot.", variant: "destructive" });
-        return;
+      toast({ title: "Selection Needed", description: "Please select an available pickup time slot.", variant: "destructive" });
+      return;
     }
-    if (availableSlotsForDateGlobal.length === 0 && selectedDateGlobal) { // Double check, should be caught by button state
-         toast({ title: "No Slots", description: "No pickup slots available for the selected date. Please choose another date.", variant: "destructive" });
-        return;
+    if (availableSlotsForDateGlobal.length === 0 && selectedDateGlobal) {
+      toast({ title: "No Slots", description: "No pickup slots available for the selected date. Please choose another date.", variant: "destructive" });
+      return;
     }
 
-
-    if (skipPreviewNextTime) {
-      handleFinalSubmit();
-    } else {
-      setShowPreviewModal(true);
-    }
-  };
-
-  const handleToggleSkipPreview = (checked: boolean) => {
-    setSkipPreviewNextTime(checked);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(LOCALSTORAGE_SKIP_PREVIEW_KEY, checked ? 'true' : 'false');
-    }
+    // Always show preview modal, skipPreviewNextTime is removed.
+    setShowPreviewModal(true);
+    setIsFooterVisible(false); // Hide footer when modal is open
   };
 
   // Initial Loading UI
@@ -591,7 +571,6 @@ export default function PackingPage() {
     );
   }
 
-  // Determine Go Button state and text
   let isGoButtonDisabled = isSubmittingGlobal || trayItemsGlobal.length === 0;
   let goButtonText: string;
 
@@ -602,13 +581,8 @@ export default function PackingPage() {
     goButtonText = "List is Empty";
     isGoButtonDisabled = true;
   } else {
-    goButtonText = `RM ${totalAmountGlobal.toFixed(2)} （${totalItemCountGlobal} ${totalItemCountGlobal === 1 ? 'item' : 'items'})`;
-    if (!selectedDateGlobal) {
-      isGoButtonDisabled = true;
-      // The button text remains the same, but it's disabled. A toast will show the reason if clicked.
-    } else if (availableSlotsForDateGlobal.length === 0) {
-      isGoButtonDisabled = true;
-    } else if (!selectedPickupTimeGlobal) {
+    goButtonText = `RM ${totalAmountGlobal.toFixed(2)} (${totalItemCountGlobal} ${totalItemCountGlobal === 1 ? 'item' : 'items'})`;
+    if (!selectedDateGlobal || (availableSlotsForDateGlobal.length > 0 && !selectedPickupTimeGlobal) || (availableSlotsForDateGlobal.length === 0 && selectedDateGlobal) ) {
       isGoButtonDisabled = true;
     }
   }
@@ -617,7 +591,7 @@ export default function PackingPage() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
-      <main className="flex-grow container mx-auto px-0 sm:px-4 py-6 sm:py-8 pb-28"> {/* pb-28 for fixed footer */}
+      <main className="flex-grow container mx-auto px-0 sm:px-4 py-6 sm:py-8 pb-28">
         <Suspense fallback={
           <div className="flex flex-col justify-center items-center h-[calc(100vh-200px)]">
             <Package className="h-16 w-16 animate-spin text-primary" />
@@ -635,7 +609,10 @@ export default function PackingPage() {
         </Suspense>
       </main>
 
-      <Dialog open={showPreviewModal} onOpenChange={setShowPreviewModal}>
+      <Dialog open={showPreviewModal} onOpenChange={(isOpen) => {
+        setShowPreviewModal(isOpen);
+        if (!isOpen) setIsFooterVisible(true); // Show footer when modal closes
+       }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-2xl">
@@ -647,10 +624,10 @@ export default function PackingPage() {
           </DialogHeader>
           <div className="space-y-4 py-2 max-h-[50vh] overflow-y-auto">
             {trayItemsGlobal.map(item => {
-               let emoji = '🛍️';
-               if (item.name.toLowerCase().includes('burger')) emoji = '🍔';
-               else if (item.name.toLowerCase().includes('wrap') || item.name.toLowerCase().includes('bowl') || item.name.toLowerCase().includes('salad')) emoji = '🍱';
-               else if (item.name.toLowerCase().includes('smoothie') || item.name.toLowerCase().includes('brew') || item.name.toLowerCase().includes('drink')) emoji = '🥤';
+              let emoji = '🛍️';
+              if (item.name.toLowerCase().includes('burger')) emoji = '🍔';
+              else if (item.name.toLowerCase().includes('wrap') || item.name.toLowerCase().includes('bowl') || item.name.toLowerCase().includes('salad')) emoji = '🍱';
+              else if (item.name.toLowerCase().includes('smoothie') || item.name.toLowerCase().includes('brew') || item.name.toLowerCase().includes('drink')) emoji = '🥤';
               return (
                 <div key={item.productId} className="flex justify-between items-center text-sm border-b pb-2">
                   <span>{emoji} {item.name} (x{item.quantity})</span>
@@ -670,11 +647,8 @@ export default function PackingPage() {
               {unitNumberGlobal && <p className="text-sm"><span className="font-medium">Unit/House No.:</span> {unitNumberGlobal}</p>}
             </div>
           </div>
-          <div className="flex items-center space-x-2 mt-4">
-            <Checkbox id="skipPreview" checked={skipPreviewNextTime} onCheckedChange={(checked) => handleToggleSkipPreview(checked as boolean)} />
-            <Label htmlFor="skipPreview" className="text-xs text-muted-foreground">Don't show this preview again</Label>
-          </div>
-          <DialogFooter className="sm:justify-between gap-2 mt-2">
+          {/* "Don't show this preview again" checkbox is removed */}
+          <DialogFooter className="sm:justify-between gap-2 mt-4"> {/* Increased mt from 2 to 4 */}
             <DialogClose asChild>
               <Button type="button" variant="outline" className="w-full sm:w-auto">
                 <Edit3 className="mr-2 h-4 w-4" /> Edit Pack
@@ -688,9 +662,9 @@ export default function PackingPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Fixed Footer Buttons */}
-      <div className="fixed bottom-0 left-0 right-0 z-[60] p-3 bg-card/95 backdrop-blur-sm border-t border-border shadow-lg print:hidden">
-        <div className="container mx-auto max-w-lg flex items-center justify-between gap-3">
+      {isFooterVisible && (
+        <div className="fixed bottom-0 left-0 right-0 z-[60] p-3 bg-card/95 backdrop-blur-sm border-t border-border shadow-lg print:hidden">
+          <div className="container mx-auto max-w-lg flex items-center justify-between gap-3">
             <Button
               onClick={() => router.push('/')}
               variant="outline"
@@ -704,9 +678,7 @@ export default function PackingPage() {
               className={cn(
                 "flex-[2_1_0%] h-14 text-md rounded-xl shadow-md flex items-center justify-center gap-2 transition-all duration-150 ease-in-out active:scale-95",
                 (trayItemsGlobal.length === 0 && !isSubmittingGlobal)
-                  ? "bg-muted text-muted-foreground" // Distinct style for "List is Empty"
-                  // For other states (active, submitting, or disabled due to missing selections but cart not empty),
-                  // use accent color. The `disabled:opacity-50` from base button styles will make it lighter.
+                  ? "bg-muted text-muted-foreground"
                   : "bg-accent text-accent-foreground hover:bg-accent/90"
               )}
             >
@@ -721,9 +693,9 @@ export default function PackingPage() {
                 </>
               )}
             </Button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
-
