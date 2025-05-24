@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Heart, PlusCircle, CheckCircle, ShoppingBag } from 'lucide-react';
 import { cn } from '@/lib/utils';
+// Removed useToast import as it's no longer used for add/remove feedback here
+// import { useToast } from '@/hooks/use-toast';
 
 export default function ProductDetailPage() {
   const router = useRouter();
@@ -19,20 +21,23 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<Product | null>(null);
   const [trayItems, setTrayItems] = useState<OrderItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  // Add state for current image index if you plan to implement a carousel here too
-  // const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  // const { toast } = useToast(); // Toasts removed for add/remove actions
 
   useEffect(() => {
     setIsLoading(true);
-    const savedTray = localStorage.getItem('good2go_cart');
-    if (savedTray) {
-      try {
-        setTrayItems(JSON.parse(savedTray));
-      } catch (e) {
-        console.error("Failed to parse tray from localStorage", e);
-        setTrayItems([]);
-      }
+    let initialTray: OrderItem[] = [];
+    if (typeof window !== 'undefined') {
+        const savedTray = localStorage.getItem('good2go_cart');
+        if (savedTray) {
+            try {
+            initialTray = JSON.parse(savedTray);
+            } catch (e) {
+            console.error("Failed to parse tray from localStorage on detail page", e);
+            initialTray = [];
+            }
+        }
     }
+    setTrayItems(initialTray);
     
     if (productId) {
       const foundProduct = mockProducts.find((p) => p.id === productId);
@@ -42,9 +47,10 @@ export default function ProductDetailPage() {
   }, [productId]);
 
   useEffect(() => {
-    // Save trayItems to localStorage whenever it changes, but only after initial load
     if (!isLoading && (trayItems.length > 0 || localStorage.getItem('good2go_cart') !== null)) {
-        localStorage.setItem('good2go_cart', JSON.stringify(trayItems));
+        if (localStorage.getItem('good2go_cart') !== JSON.stringify(trayItems)) {
+            localStorage.setItem('good2go_cart', JSON.stringify(trayItems));
+        }
     }
   }, [trayItems, isLoading]);
 
@@ -66,6 +72,7 @@ export default function ProductDetailPage() {
         updatedItems = prevItems.filter(
           (item) => item.productId !== product.id
         );
+        // Toast removed: toast({ title: "❌ Removed from list", description: `${product.name} removed.` });
       } else {
         updatedItems = [
           ...prevItems,
@@ -76,6 +83,7 @@ export default function ProductDetailPage() {
             quantity: 1,
           },
         ];
+        // Toast removed: toast({ title: "✅ Added to list", description: `${product.name} added.` });
       }
       return updatedItems;
     });
@@ -85,9 +93,9 @@ export default function ProductDetailPage() {
   const handleBottomBarAction = () => {
     if (!product) return;
     if (isItemInTray(product.id)) {
-      router.push('/checkout');
+      router.push('/checkout'); // Navigate to Packing Page
     } else {
-      handleToggleTrayItem();
+      handleToggleTrayItem(); // Add to pack and stay on page
     }
   };
 
@@ -210,7 +218,7 @@ export default function ProductDetailPage() {
             className={cn(
               "w-full h-14 text-lg font-semibold rounded-xl shadow-md flex items-center justify-center gap-2 transition-all duration-150 ease-in-out active:scale-95",
               currentItemInTray
-                ? "bg-green-600 hover:bg-green-700 text-white"
+                ? "bg-green-600 hover:bg-green-700 text-white" // Was previously using accent, changed for clarity
                 : "bg-accent hover:bg-accent/90 text-accent-foreground"
             )}
           >
