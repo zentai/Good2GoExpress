@@ -39,9 +39,8 @@ function TrayItemDisplay({ item, onUpdateQuantity }: TrayItemDisplayProps) {
 
   let emoji = '🛍️'; // Default
   if (item.name.toLowerCase().includes('burger')) emoji = '🍔';
-  else if (item.name.toLowerCase().includes('wrap')) emoji = '🌯';
+  else if (item.name.toLowerCase().includes('wrap') || item.name.toLowerCase().includes('bowl') || item.name.toLowerCase().includes('salad')) emoji = '🍱';
   else if (item.name.toLowerCase().includes('smoothie') || item.name.toLowerCase().includes('brew') || item.name.toLowerCase().includes('drink')) emoji = '🥤';
-  else if (item.name.toLowerCase().includes('bowl') || item.name.toLowerCase().includes('salad')) emoji = '🥗';
 
 
   return (
@@ -123,7 +122,7 @@ function PackingPageContent({
   const availableDates = useMemo(() => {
     const dates = [];
     const today = new Date();
-    for (let i = 0; i < 5; i++) { // Show next 5 days
+    for (let i = 0; i < 3; i++) { // Show next 3 days
       dates.push(addDays(today, i));
     }
     return dates;
@@ -266,28 +265,25 @@ function PackingPageContent({
           <Label className="text-md font-semibold text-foreground flex items-center gap-2">
             <CalendarDays className="h-5 w-5 text-primary" />Select Pickup Date
           </Label>
-          <ScrollArea className="w-full whitespace-nowrap rounded-md">
-            <div className="flex space-x-3 pb-2">
-              {availableDates.map(date => (
-                <Button
-                  key={date.toISOString()}
-                  variant={selectedDate && isSameDay(selectedDate, date) ? 'default' : 'outline'}
-                  onClick={() => setSelectedDate(date)}
-                  className={cn(
-                    "py-3 px-4 text-base h-auto rounded-md border-2 font-medium flex flex-col items-center justify-center min-w-[70px]",
-                    selectedDate && isSameDay(selectedDate, date)
-                      ? "bg-primary text-primary-foreground border-primary ring-2 ring-primary ring-offset-2 shadow-lg"
-                      : "bg-background text-foreground border-input hover:bg-secondary/50"
-                  )}
-                >
-                  <span className="text-xs">{format(date, 'EEE')}</span>
-                  <span>{format(date, 'd')}</span>
-                  <span className="text-xs">{format(date, 'MMM')}</span>
-                </Button>
-              ))}
-            </div>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
+          <div className="grid grid-cols-3 gap-3">
+            {availableDates.map(date => (
+              <Button
+                key={date.toISOString()}
+                variant={selectedDate && isSameDay(selectedDate, date) ? 'default' : 'outline'}
+                onClick={() => setSelectedDate(date)}
+                className={cn(
+                  "py-3 px-2 text-sm h-auto rounded-md border-2 font-medium flex flex-col items-center justify-center w-full", // Added w-full
+                  selectedDate && isSameDay(selectedDate, date)
+                    ? "bg-primary text-primary-foreground border-primary ring-2 ring-primary ring-offset-2 shadow-lg"
+                    : "bg-background text-foreground border-input hover:bg-secondary/50"
+                )}
+              >
+                <span className="text-xs">{format(date, 'EEE')}</span>
+                <span>{format(date, 'd')}</span>
+                <span className="text-xs">{format(date, 'MMM')}</span>
+              </Button>
+            ))}
+          </div>
         </div>
 
         {selectedDate && (
@@ -491,18 +487,14 @@ export default function PackingPage() {
         orderId: firebaseResponse.orderId,
       });
 
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('good2go_cart');
-      }
-
+      
       if (sendViaWhatsAppGlobal) {
         let packingDetails = "Hi Good2Go Express! I've packed my stash:\n\n";
         trayItemsGlobal.forEach(item => {
           let emoji = '🛍️';
           if (item.name.toLowerCase().includes('burger')) emoji = '🍔';
-          else if (item.name.toLowerCase().includes('wrap')) emoji = '🌯';
+          else if (item.name.toLowerCase().includes('wrap') || item.name.toLowerCase().includes('bowl') || item.name.toLowerCase().includes('salad')) emoji = '🍱';
           else if (item.name.toLowerCase().includes('smoothie') || item.name.toLowerCase().includes('brew') || item.name.toLowerCase().includes('drink')) emoji = '🥤';
-          else if (item.name.toLowerCase().includes('bowl') || item.name.toLowerCase().includes('salad')) emoji = '🥗';
           packingDetails += `${emoji} ${item.name} × ${item.quantity} – RM ${item.price.toFixed(2)}\n`;
         });
         packingDetails += `\n💰 Total: RM ${totalAmountGlobal.toFixed(2)}\n`;
@@ -514,10 +506,16 @@ export default function PackingPage() {
 
         const whatsappUrl = `https://wa.me/${WHATSAPP_PHONE_NUMBER}?text=${encodeURIComponent(packingDetails)}`;
         
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('good2go_cart');
+        }
         router.push(`/order-confirmation?${queryParams.toString()}`); 
         window.open(whatsappUrl, '_blank'); 
 
       } else {
+         if (typeof window !== 'undefined') {
+          localStorage.removeItem('good2go_cart');
+        }
          router.push(`/order-confirmation?${queryParams.toString()}`);
       }
 
@@ -604,9 +602,8 @@ export default function PackingPage() {
             {trayItemsGlobal.map(item => {
                let emoji = '🛍️';
                if (item.name.toLowerCase().includes('burger')) emoji = '🍔';
-               else if (item.name.toLowerCase().includes('wrap')) emoji = '🌯';
+               else if (item.name.toLowerCase().includes('wrap') || item.name.toLowerCase().includes('bowl') || item.name.toLowerCase().includes('salad')) emoji = '🍱';
                else if (item.name.toLowerCase().includes('smoothie') || item.name.toLowerCase().includes('brew') || item.name.toLowerCase().includes('drink')) emoji = '🥤';
-               else if (item.name.toLowerCase().includes('bowl') || item.name.toLowerCase().includes('salad')) emoji = '🥗';
               return (
                 <div key={item.productId} className="flex justify-between items-center text-sm border-b pb-2">
                   <span>{emoji} {item.name} (x{item.quantity})</span>
@@ -676,3 +673,5 @@ export default function PackingPage() {
   );
 }
 
+
+    
