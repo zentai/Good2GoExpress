@@ -1,17 +1,18 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
+import { useSwipeable, type SwipeEventData } from 'react-swipeable';
 import { mockProducts } from '@/data/products';
 import type { Product, OrderItem } from '@/lib/types';
-import Header from '@/components/Header'; // For LOGO
+import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
-import { X, Plus, ShoppingBag } from 'lucide-react'; // ChevronLeft, ChevronRight, ArrowLeft, Home, Info removed as per minimalist design
+import { X, Plus, ShoppingBag } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
-// Helper function to get product index by ID
 const getProductIndexById = (id: string, products: Product[]): number => {
   return products.findIndex(p => p.id === id);
 };
@@ -21,23 +22,27 @@ export default function SwipeViewPage() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
 
-  const [allProducts, setAllProducts] = useState<Product[]>(mockProducts);
+  const [allProducts] = useState<Product[]>(mockProducts); // Removed setAllProducts as it's not used
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [trayItems, setTrayItems] = useState<OrderItem[]>([]);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [actionFeedback, setActionFeedback] = useState<'added' | 'skipped' | null>(null);
-  const [animationKey, setAnimationKey] = useState(0); // Key for re-triggering animations
+  const [animationKey, setAnimationKey] = useState(0);
 
 
-  // Initialize trayItems from localStorage and set initial product
   useEffect(() => {
     setIsLoading(true);
     const savedTray = localStorage.getItem('good2go_cart');
     if (savedTray) {
       try {
-        setTrayItems(JSON.parse(savedTray));
+        const parsedTray: OrderItem[] = JSON.parse(savedTray);
+        if (Array.isArray(parsedTray)) {
+          setTrayItems(parsedTray);
+        } else {
+          setTrayItems([]);
+        }
       } catch (e) {
         console.error("Failed to parse tray from localStorage", e);
         setTrayItems([]);
@@ -47,18 +52,18 @@ export default function SwipeViewPage() {
     const initialProductId = searchParams.get('productId');
     let initialIndex = 0;
     if (initialProductId) {
-      const foundIndex = getProductIndexById(initialProductId, mockProducts);
+      const foundIndex = getProductIndexById(initialProductId, allProducts);
       if (foundIndex !== -1) {
         initialIndex = foundIndex;
       }
     }
     setCurrentIndex(initialIndex);
-    setCurrentProduct(mockProducts[initialIndex]);
-    setAnimationKey(prev => prev + 1); // Trigger initial animation
+    setCurrentProduct(allProducts[initialIndex]);
+    setAnimationKey(prev => prev + 1);
     setIsLoading(false);
-  }, [searchParams]);
+  }, [searchParams, allProducts]);
 
-  // Update localStorage when trayItems change
+
   useEffect(() => {
     if (!isLoading && (trayItems.length > 0 || localStorage.getItem('good2go_cart') !== null)) {
       localStorage.setItem('good2go_cart', JSON.stringify(trayItems));
@@ -80,7 +85,7 @@ export default function SwipeViewPage() {
         return prevIndex; 
       }
       setCurrentProduct(allProducts[nextIdx]);
-      setAnimationKey(prev => prev + 1); // For enter animation of next card
+      setAnimationKey(prev => prev + 1);
       return nextIdx;
     });
   }, [allProducts, router, toast]);
@@ -107,8 +112,8 @@ export default function SwipeViewPage() {
     setTimeout(() => {
         advanceToNextProduct();
         setActionFeedback(null);
-    }, 500); // Duration of exit animation
-  }, [currentProduct, toast, advanceToNextProduct, trayItems]);
+    }, 500); 
+  }, [currentProduct, toast, advanceToNextProduct, trayItems]); // trayItems added to dependency array
 
   const handleSkip = useCallback(() => {
     if (!currentProduct) return;
@@ -120,7 +125,7 @@ export default function SwipeViewPage() {
      setTimeout(() => {
         advanceToNextProduct();
         setActionFeedback(null);
-    }, 500); // Duration of exit animation
+    }, 500); 
   }, [currentProduct, toast, advanceToNextProduct]);
 
   const toggleDescription = () => setIsDescriptionExpanded(!isDescriptionExpanded);
@@ -129,6 +134,16 @@ export default function SwipeViewPage() {
     (productId: string) => trayItems.some(item => item.productId === productId),
     [trayItems]
   );
+
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: () => handleSkip(),
+    onSwipedRight: () => handleAddToPack(),
+    onSwipedUp: () => router.push('/checkout'),
+    onSwipedDown: () => router.push('/'),
+    preventScrollOnSwipe: true,
+    trackMouse: true,
+    delta: 10, // Min distance in pixels to constitute a swipe
+  });
   
   if (isLoading || !currentProduct) {
     return (
@@ -145,8 +160,7 @@ export default function SwipeViewPage() {
     currentProduct.name.toLowerCase().includes('smoothie') || currentProduct.name.toLowerCase().includes('brew') || currentProduct.name.toLowerCase().includes('drink') ? '🥤' :
     '🛍️';
 
-  // Simple animation classes based on actionFeedback
-  let cardAnimationClass = 'animate-fade-in'; // Default enter animation
+  let cardAnimationClass = 'animate-fade-in'; 
   if (actionFeedback === 'added') {
     cardAnimationClass = 'animate-slide-out-right';
   } else if (actionFeedback === 'skipped') {
@@ -160,7 +174,10 @@ export default function SwipeViewPage() {
          <Header />
       </div>
 
-      <div className="flex-grow flex flex-col items-center justify-center pt-16 pb-28 relative"> {/* pt for header, pb for buttons */}
+      <div 
+        {...swipeHandlers} 
+        className="flex-grow flex flex-col items-center justify-center pt-16 pb-28 relative touch-none" /* touch-none to prevent browser default touch actions like scroll/zoom */
+      >
         {currentProduct && (
           <div key={animationKey} className={cn("w-full max-w-sm md:max-w-md flex flex-col items-center", cardAnimationClass)}>
             <div className="relative w-full aspect-[3/4] max-h-[65vh] bg-muted rounded-xl shadow-2xl overflow-hidden">
@@ -169,7 +186,7 @@ export default function SwipeViewPage() {
                 alt={currentProduct.name}
                 fill
                 priority
-                className="object-cover"
+                className="object-cover pointer-events-none" /* pointer-events-none so image doesn't interfere with swipe on parent */
                 data-ai-hint={currentProduct.dataAiHint || "product image"}
               />
               {currentProduct.badge && (
@@ -189,10 +206,10 @@ export default function SwipeViewPage() {
             </div>
             
             <div 
-              className="w-full p-4 -mt-5 relative z-20 cursor-pointer" // Removed bg-background to let card be the background
-              onClick={toggleDescription}
+              className="w-full p-4 -mt-5 relative z-20" 
+              onClick={toggleDescription} /* Keep click for description toggle, swipe handler is on parent */
             >
-              <div className="p-4 bg-card rounded-lg shadow-lg">
+              <div className="p-4 bg-card rounded-lg shadow-lg cursor-pointer"> {/* Add cursor-pointer here */}
                 <div className="flex justify-between items-start">
                   <h2 className="text-lg font-bold text-foreground mr-2">{currentProduct.name}</h2>
                   <p className="text-lg font-bold text-primary whitespace-nowrap">RM {currentProduct.price.toFixed(2)}</p>
@@ -220,7 +237,7 @@ export default function SwipeViewPage() {
             variant="outline"
             size="lg"
             className="flex-1 h-14 rounded-full shadow-md text-base font-medium border-2 hover:bg-muted active:scale-95"
-            onClick={handleSkip}
+            onClick={(e) => { e.stopPropagation(); handleSkip(); }}
             aria-label="Skip this product"
           >
             <X className="mr-1.5 h-5 w-5" /> Skip
@@ -231,7 +248,7 @@ export default function SwipeViewPage() {
                 "flex-1 h-14 rounded-full shadow-lg text-base font-medium text-accent-foreground active:scale-95",
                 isItemInTray(currentProduct.id) ? "bg-green-600 hover:bg-green-700" : "bg-accent hover:bg-accent/90"
             )}
-            onClick={handleAddToPack}
+            onClick={(e) => { e.stopPropagation(); handleAddToPack(); }}
             disabled={isItemInTray(currentProduct.id)}
             aria-label={isItemInTray(currentProduct.id) ? `${currentProduct.name} is in pack` : `Add ${currentProduct.name} to pack`}
           >
@@ -250,34 +267,3 @@ export default function SwipeViewPage() {
     </div>
   );
 }
-
-// Define animations in globals.css or here using style tag (less ideal)
-// For simplicity, using a style tag here. Better to put in globals.css
-// And ensure tailwind.config.js has these keyframes and animations defined.
-const animationStyles = `
-  @keyframes fadeIn {
-    from { opacity: 0; transform: scale(0.95); }
-    to { opacity: 1; transform: scale(1); }
-  }
-  .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
-
-  @keyframes slideOutLeft {
-    from { opacity: 1; transform: translateX(0) rotate(0deg); }
-    to { opacity: 0; transform: translateX(-100%) rotate(-15deg); }
-  }
-  .animate-slide-out-left { animation: slideOutLeft 0.5s ease-in forwards; }
-
-  @keyframes slideOutRight {
-    from { opacity: 1; transform: translateX(0) rotate(0deg); }
-    to { opacity: 0; transform: translateX(100%) rotate(15deg); }
-  }
-  .animate-slide-out-right { animation: slideOutRight 0.5s ease-in forwards; }
-`;
-
-if (typeof window !== 'undefined') {
-  const styleSheet = document.createElement("style");
-  styleSheet.type = "text/css";
-  styleSheet.innerText = animationStyles;
-  document.head.appendChild(styleSheet);
-}
-
