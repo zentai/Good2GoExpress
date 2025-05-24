@@ -12,11 +12,12 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+// ScrollArea and ScrollBar might not be needed for dates if 3 fit well.
+// import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Package, Home as HomeIcon, ShoppingBag, CheckCircle, MessageSquare, PlusCircle, MinusCircle, ArrowLeftCircle, Rocket, CalendarDays, Clock, ShoppingCart, Edit3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { format, addDays, isSameDay, addHours, setHours, setMinutes, setSeconds, setMilliseconds, isBefore, parseISO } from 'date-fns';
+import { format, addDays, isSameDay, addHours, setHours, setMinutes, setSeconds, setMilliseconds, isBefore, parseISO, startOfDay } from 'date-fns';
 
 const WHATSAPP_PHONE_NUMBER = '+60187693136'; // Replace with your actual number
 const LOCALSTORAGE_UNIT_NUMBER_KEY = 'good2go_unitNumber';
@@ -90,7 +91,8 @@ interface PackingPageContentProps {
     amount: number,
     count: number,
     unit: string,
-    sendWhatsApp: boolean
+    sendWhatsApp: boolean,
+    availableSlotsForDate: string[], // Pass up available slots for parent to know
   }) => void;
   initialTrayItems: OrderItem[];
   initialUnitNumber: string;
@@ -117,11 +119,11 @@ function PackingPageContent({
   const [selectedPickupTime, setSelectedPickupTime] = useState<string>(initialSelectedPickupTime);
   const [unitNumber, setUnitNumber] = useState(initialUnitNumber);
   const [sendViaWhatsApp, setSendViaWhatsApp] = useState(initialSendViaWhatsApp);
-  const [isLoading, setIsLoading] = useState(true); // To prevent premature redirect on load
+  const [isLoading, setIsLoading] = useState(true);
 
   const availableDates = useMemo(() => {
     const dates = [];
-    const today = new Date();
+    const today = startOfDay(new Date()); // Use startOfDay for consistent comparisons
     for (let i = 0; i < 3; i++) { // Show next 3 days
       dates.push(addDays(today, i));
     }
@@ -130,7 +132,7 @@ function PackingPageContent({
 
   const pickupTimeSlots = ["12:00 – 13:00", "18:00 – 19:00"];
 
-  const getAvailableTimeSlots = useCallback((date: Date | null) => {
+  const getAvailableTimeSlots = useCallback((date: Date | null): string[] => {
     if (!date) return [];
     const now = new Date();
     const leadTimeBoundary = addHours(now, PICKUP_LEAD_TIME_HOURS);
@@ -138,7 +140,6 @@ function PackingPageContent({
     return pickupTimeSlots.filter(slot => {
       const slotStartTimeString = slot.split(' – ')[0];
       const [hours, minutes] = slotStartTimeString.split(':').map(Number);
-      // Important: Use the *selected date* for constructing slotDateTime
       const slotDateTime = setMilliseconds(setSeconds(setMinutes(setHours(new Date(date), hours), minutes), 0), 0);
       return isBefore(leadTimeBoundary, slotDateTime);
     });
@@ -150,24 +151,28 @@ function PackingPageContent({
     if (selectedDate) {
       const newSlots = getAvailableTimeSlots(selectedDate);
       setAvailableSlotsForSelectedDate(newSlots);
-      if (selectedPickupTime && !newSlots.includes(selectedPickupTime)) {
-        setSelectedPickupTime(''); // Reset if current selection becomes invalid
+      // Auto-select the first available slot if current selection is invalid or no selection
+      if (newSlots.length > 0 && (!selectedPickupTime || !newSlots.includes(selectedPickupTime))) {
+        setSelectedPickupTime(newSlots[0]);
+      } else if (newSlots.length === 0) {
+        setSelectedPickupTime(''); // Reset if no slots available
       }
     } else {
       setAvailableSlotsForSelectedDate([]);
       setSelectedPickupTime('');
     }
-  }, [selectedDate, selectedPickupTime, getAvailableTimeSlots]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate, getAvailableTimeSlots]); // selectedPickupTime removed from deps to allow default selection
 
-  // Load initial state from props (which should be from localStorage in parent)
+
   useEffect(() => {
     setTrayItems(initialTrayItems);
     setUnitNumber(initialUnitNumber);
     setSendViaWhatsApp(initialSendViaWhatsApp);
     setSelectedDate(initialSelectedDate);
-    setSelectedPickupTime(initialSelectedPickupTime);
+    // setSelectedPickupTime is handled by the effect above based on initialSelectedDate
     setIsLoading(false);
-  }, [initialTrayItems, initialUnitNumber, initialSendViaWhatsApp, initialSelectedDate, initialSelectedPickupTime]);
+  }, [initialTrayItems, initialUnitNumber, initialSendViaWhatsApp, initialSelectedDate]);
 
 
   useEffect(() => {
@@ -186,9 +191,10 @@ function PackingPageContent({
 
   useEffect(() => {
     const totals = updateTotals(trayItems);
-    if (typeof window !== 'undefined' && !isLoading) { 
+    if (typeof window !== 'undefined' && !isLoading) {
         localStorage.setItem('good2go_cart', JSON.stringify(trayItems));
     }
+    // This effect now also passes up availableSlotsForSelectedDate
     onStateChangeForParent({
       items: trayItems,
       pickupDate: selectedDate,
@@ -196,7 +202,8 @@ function PackingPageContent({
       amount: totals.amount,
       count: totals.count,
       unit: unitNumber,
-      sendWhatsApp: sendViaWhatsApp
+      sendWhatsApp: sendViaWhatsApp,
+      availableSlotsForDate: availableSlotsForSelectedDate, // Pass this up
     });
 
     if (trayItems.length === 0 && !isLoading) {
@@ -209,7 +216,7 @@ function PackingPageContent({
       router.push('/');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trayItems, selectedDate, selectedPickupTime, unitNumber, sendViaWhatsApp, isLoading, onStateChangeForParent, router, toast, updateTotals]);
+  }, [trayItems, selectedDate, selectedPickupTime, unitNumber, sendViaWhatsApp, isLoading, router, toast, updateTotals, availableSlotsForSelectedDate]);
 
 
   const handleUpdateQuantity = (productId: string, newQuantity: number) => {
@@ -230,8 +237,8 @@ function PackingPageContent({
       return updatedItems;
     });
   };
-  
-  if (isLoading && initialTrayItems.length === 0) { 
+
+  if (isLoading && initialTrayItems.length === 0) {
     return (
       <div className="flex flex-col justify-center items-center h-[calc(100vh-200px)]">
         <Package className="h-12 w-12 animate-spin text-primary" />
@@ -249,21 +256,24 @@ function PackingPageContent({
         <CardTitle className="text-3xl font-bold text-primary">Let’s Pack!</CardTitle>
         <CardDescription className="text-muted-foreground mt-1 px-2">You’re almost ready! Tweak your loadout and hit GO.</CardDescription>
       </CardHeader>
-      <CardContent className="p-4 sm:p-6 space-y-6">
-        <div className="space-y-1">
+      <CardContent className="p-4 sm:p-6 space-y-8"> {/* Increased space-y for step separation */}
+        <div>
+          <p className="text-xs text-muted-foreground mb-1">Step 1 of 4</p>
           <h3 className="text-xl font-semibold text-foreground mb-3 pb-2 border-b flex items-center gap-2">
-            <ShoppingBag className="h-6 w-6 text-primary" /> Your Stash
+            <ShoppingBag className="h-6 w-6 text-primary" /> Choose Your Stash
           </h3>
           <div className="space-y-0">
             {trayItems.map(item => (
               <TrayItemDisplay key={item.productId} item={item} onUpdateQuantity={handleUpdateQuantity} />
             ))}
+            {trayItems.length === 0 && <p className="text-muted-foreground text-center py-4">Your stash is empty. Add some items!</p>}
           </div>
         </div>
 
-        <div className="space-y-3 pt-2">
-          <Label className="text-md font-semibold text-foreground flex items-center gap-2">
-            <CalendarDays className="h-5 w-5 text-primary" />Select Pickup Date
+        <div>
+          <p className="text-xs text-muted-foreground mb-1">Step 2 of 4</p>
+          <Label className="text-xl font-semibold text-foreground flex items-center gap-2 mb-3 pb-2 border-b">
+            <CalendarDays className="h-6 w-6 text-primary" />Select Pickup Date
           </Label>
           <div className="grid grid-cols-3 gap-3">
             {availableDates.map(date => (
@@ -272,7 +282,7 @@ function PackingPageContent({
                 variant={selectedDate && isSameDay(selectedDate, date) ? 'default' : 'outline'}
                 onClick={() => setSelectedDate(date)}
                 className={cn(
-                  "py-3 px-2 text-sm h-auto rounded-md border-2 font-medium flex flex-col items-center justify-center w-full", // Added w-full
+                  "py-3 px-2 text-sm h-auto rounded-md border-2 font-medium flex flex-col items-center justify-center w-full",
                   selectedDate && isSameDay(selectedDate, date)
                     ? "bg-primary text-primary-foreground border-primary ring-2 ring-primary ring-offset-2 shadow-lg"
                     : "bg-background text-foreground border-input hover:bg-secondary/50"
@@ -287,9 +297,10 @@ function PackingPageContent({
         </div>
 
         {selectedDate && (
-          <div className="space-y-3 pt-2">
-            <Label className="text-md font-semibold text-foreground flex items-center gap-2">
-              <Clock className="h-5 w-5 text-primary" />Select Pickup Time Slot
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Step 3 of 4</p>
+            <Label className="text-xl font-semibold text-foreground flex items-center gap-2 mb-3 pb-2 border-b">
+              <Clock className="h-6 w-6 text-primary" />Select Pickup Time Slot
             </Label>
             {availableSlotsForSelectedDate.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -317,9 +328,10 @@ function PackingPageContent({
           </div>
         )}
 
-        <div className="space-y-2 pt-2">
-          <Label htmlFor="unitNumber" className="text-md font-semibold flex items-center gap-2 text-foreground">
-            <HomeIcon className="h-5 w-5 text-primary" /> Unit/House No. (Optional)
+        <div>
+          <p className="text-xs text-muted-foreground mb-1">Step 4 of 4</p>
+          <Label htmlFor="unitNumber" className="text-xl font-semibold flex items-center gap-2 text-foreground mb-3 pb-2 border-b">
+            <HomeIcon className="h-6 w-6 text-primary" /> Fill In Unit/House No. (Optional)
           </Label>
           <Input
             id="unitNumber"
@@ -361,11 +373,12 @@ export default function PackingPage() {
   const [selectedDateGlobal, setSelectedDateGlobal] = useState<Date | null>(null);
   const [selectedPickupTimeGlobal, setSelectedPickupTimeGlobal] = useState<string>('');
   const [unitNumberGlobal, setUnitNumberGlobal] = useState('');
-  const [sendViaWhatsAppGlobal, setSendViaWhatsAppGlobal] = useState(true); // Default to true
+  const [sendViaWhatsAppGlobal, setSendViaWhatsAppGlobal] = useState(true);
   const [isSubmittingGlobal, setIsSubmittingGlobal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [skipPreviewNextTime, setSkipPreviewNextTime] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [availableSlotsForDateGlobal, setAvailableSlotsForDateGlobal] = useState<string[]>([]);
 
 
   const router = useRouter();
@@ -390,16 +403,13 @@ export default function PackingPage() {
     setTrayItemsGlobal(initialTray);
     setUnitNumberGlobal(savedUnit);
     setSkipPreviewNextTime(savedSkipPreview);
-    // setSendViaWhatsAppGlobal is already true by default
 
-    // Calculate initial totals
     const initialTotal = initialTray.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const initialItemCount = initialTray.reduce((sum, item) => sum + item.quantity, 0);
     setTotalAmountGlobal(initialTotal);
     setTotalItemCountGlobal(initialItemCount);
 
-
-    if (initialTray.length === 0 && (router as any).pathname === '/checkout') { // Type assertion as pathname might not be standard
+    if (initialTray.length === 0 && (router as any).pathname === '/checkout') {
         toast({
           title: "Your Packing List is Empty",
           description: "Let's add some items first!",
@@ -407,13 +417,12 @@ export default function PackingPage() {
           duration: 3000,
         });
         router.push('/');
-        return; 
+        return;
     }
     setIsInitialLoading(false);
 
-
     const handleStorageChange = (event: StorageEvent) => {
-        if (event.key === 'good2go_cart' || event.key === null) { 
+        if (event.key === 'good2go_cart' || event.key === null) {
             const currentCartData = localStorage.getItem('good2go_cart');
             let updatedCart: OrderItem[] = [];
             if (currentCartData) {
@@ -421,7 +430,7 @@ export default function PackingPage() {
                     updatedCart = JSON.parse(currentCartData);
                 } catch {}
             }
-            setTrayItemsGlobal(updatedCart); // Update parent's tray state
+            setTrayItemsGlobal(updatedCart);
             const newTotal = updatedCart.reduce((sum, item) => sum + item.price * item.quantity, 0);
             const newCount = updatedCart.reduce((sum, item) => sum + item.quantity, 0);
             setTotalAmountGlobal(newTotal);
@@ -448,19 +457,21 @@ export default function PackingPage() {
     amount: number,
     count: number,
     unit: string,
-    sendWhatsApp: boolean
+    sendWhatsApp: boolean,
+    availableSlotsForDate: string[],
   }) => {
-    setTrayItemsGlobal(data.items); 
+    setTrayItemsGlobal(data.items);
     setSelectedDateGlobal(data.pickupDate);
     setSelectedPickupTimeGlobal(data.pickupTime);
     setTotalAmountGlobal(data.amount);
     setTotalItemCountGlobal(data.count);
     setUnitNumberGlobal(data.unit);
     setSendViaWhatsAppGlobal(data.sendWhatsApp);
+    setAvailableSlotsForDateGlobal(data.availableSlotsForDate);
   }, []);
 
   const handleFinalSubmit = async () => {
-    setShowPreviewModal(false); 
+    setShowPreviewModal(false);
     setIsSubmittingGlobal(true);
 
     const orderDataForFirebase = {
@@ -487,7 +498,8 @@ export default function PackingPage() {
         orderId: firebaseResponse.orderId,
       });
 
-      
+      localStorage.removeItem('good2go_cart');
+
       if (sendViaWhatsAppGlobal) {
         let packingDetails = "Hi Good2Go Express! I've packed my stash:\n\n";
         trayItemsGlobal.forEach(item => {
@@ -506,16 +518,10 @@ export default function PackingPage() {
 
         const whatsappUrl = `https://wa.me/${WHATSAPP_PHONE_NUMBER}?text=${encodeURIComponent(packingDetails)}`;
         
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('good2go_cart');
-        }
-        router.push(`/order-confirmation?${queryParams.toString()}`); 
-        window.open(whatsappUrl, '_blank'); 
+        router.push(`/order-confirmation?${queryParams.toString()}`);
+        window.open(whatsappUrl, '_blank');
 
       } else {
-         if (typeof window !== 'undefined') {
-          localStorage.removeItem('good2go_cart');
-        }
          router.push(`/order-confirmation?${queryParams.toString()}`);
       }
 
@@ -527,7 +533,8 @@ export default function PackingPage() {
         variant: "destructive",
         duration: 5000,
       });
-      setIsSubmittingGlobal(false); 
+    } finally {
+      setIsSubmittingGlobal(false);
     }
   };
 
@@ -536,10 +543,19 @@ export default function PackingPage() {
       toast({ title: "List Empty", description: "Your packing list is empty. Add some items first!", variant: "destructive" });
       return;
     }
-    if (!selectedDateGlobal || !selectedPickupTimeGlobal) {
-      toast({ title: "Selection Needed", description: "Please select a pickup date and time slot.", variant: "destructive" });
+    if (!selectedDateGlobal) {
+      toast({ title: "Selection Needed", description: "Please select a pickup date.", variant: "destructive" });
       return;
     }
+    if (availableSlotsForDateGlobal.length > 0 && !selectedPickupTimeGlobal) {
+        toast({ title: "Selection Needed", description: "Please select an available pickup time slot.", variant: "destructive" });
+        return;
+    }
+    if (availableSlotsForDateGlobal.length === 0 && selectedDateGlobal) {
+         toast({ title: "No Slots", description: "No pickup slots available for the selected date. Please choose another date.", variant: "destructive" });
+        return;
+    }
+
 
     if (skipPreviewNextTime) {
       handleFinalSubmit();
@@ -566,6 +582,30 @@ export default function PackingPage() {
       </div>
     );
   }
+
+  let goButtonText = `🚀 Go (RM ${totalAmountGlobal.toFixed(2)} | ${totalItemCountGlobal} ${totalItemCountGlobal === 1 ? 'item' : 'items'})`;
+  let isGoButtonDisabled = isSubmittingGlobal || trayItemsGlobal.length === 0;
+
+  if (trayItemsGlobal.length > 0) {
+    if (!selectedDateGlobal) {
+      goButtonText = "🚫 Please select pickup date";
+      isGoButtonDisabled = true;
+    } else if (availableSlotsForDateGlobal.length === 0) {
+      goButtonText = "🚫 No slots for this date";
+      isGoButtonDisabled = true;
+    } else if (!selectedPickupTimeGlobal) {
+      goButtonText = "🚫 Please select pickup time";
+      isGoButtonDisabled = true;
+    }
+  } else {
+    goButtonText = "List is Empty"; // or keep the default if preferred
+    isGoButtonDisabled = true;
+  }
+  if (isSubmittingGlobal) {
+    goButtonText = "Submitting...";
+    isGoButtonDisabled = true;
+  }
+
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -641,20 +681,22 @@ export default function PackingPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Fixed Dual-Button Footer */}
       <div className="fixed bottom-0 left-0 right-0 z-[60] p-3 bg-card/95 backdrop-blur-sm border-t border-border shadow-lg print:hidden">
         <div className="container mx-auto max-w-lg flex items-center justify-between gap-3">
             <Button
               onClick={() => router.push('/')}
               variant="outline"
-              className="flex-1 h-14 text-md rounded-xl shadow-sm flex items-center justify-center gap-2"
+              className="flex-1 h-14 text-md rounded-xl shadow-sm flex items-center justify-center gap-2" // flex-1 for 1 part
             >
               <ShoppingCart className="mr-1 h-5 w-5" /> Shop More
             </Button>
             <Button
               onClick={handleGoButtonClick}
-              disabled={isSubmittingGlobal || trayItemsGlobal.length === 0 || !selectedDateGlobal || !selectedPickupTimeGlobal}
-              className="flex-[2_1_0%] h-14 text-md bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl shadow-md flex items-center justify-center gap-2 transition-all duration-150 ease-in-out active:scale-95"
+              disabled={isGoButtonDisabled}
+              className={cn(
+                "flex-[2_1_0%] h-14 text-md rounded-xl shadow-md flex items-center justify-center gap-2 transition-all duration-150 ease-in-out active:scale-95", // flex-[2_1_0%] for 2 parts
+                isGoButtonDisabled && !isSubmittingGlobal && trayItemsGlobal.length > 0 ? "bg-muted text-muted-foreground hover:bg-muted" : "bg-accent hover:bg-accent/90 text-accent-foreground"
+              )}
             >
               {isSubmittingGlobal ? (
                 <>
@@ -662,8 +704,8 @@ export default function PackingPage() {
                 </>
               ) : (
                 <>
-                  <Rocket className="mr-1 h-5 w-5 group-hover:animate-pulse" />
-                   Go (RM {totalAmountGlobal.toFixed(2)} | {totalItemCountGlobal} {totalItemCountGlobal === 1 ? 'item' : 'items'})
+                  {goButtonText.startsWith("🚀") && <Rocket className="mr-1 h-5 w-5 group-hover:animate-pulse" />}
+                  {goButtonText}
                 </>
               )}
             </Button>
@@ -672,6 +714,3 @@ export default function PackingPage() {
     </div>
   );
 }
-
-
-    

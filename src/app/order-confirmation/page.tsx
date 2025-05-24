@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, Home, RefreshCw, Package } from 'lucide-react';
+import { CheckCircle, RefreshCw, Package } from 'lucide-react'; // Removed Home icon
 import { format, parseISO } from 'date-fns';
 
 function OrderConfirmationContent() {
@@ -23,9 +23,8 @@ function OrderConfirmationContent() {
   });
 
   useEffect(() => {
-    // Clear the cart from localStorage once the list is confirmed
     if (typeof window !== 'undefined') {
-        localStorage.removeItem('good2go_cart'); 
+        localStorage.removeItem('good2go_cart');
     }
 
     setOrderDetails({
@@ -38,19 +37,24 @@ function OrderConfirmationContent() {
     });
   }, [searchParams]);
 
-  const formattedDate = orderDetails.pickupDate && orderDetails.pickupDate !== 'N/A' 
-    ? format(parseISO(orderDetails.pickupDate), 'MMM d, yyyy (EEE)') 
+  const formattedDate = orderDetails.pickupDate && orderDetails.pickupDate !== 'N/A'
+    ? format(parseISO(orderDetails.pickupDate), 'MMM d, yyyy (EEE)')
     : 'N/A';
+  
+  const pickupTimeString = orderDetails.pickupTime || 'N/A';
 
   return (
     <Card className="w-full max-w-md mx-auto shadow-xl text-center">
       <CardHeader>
         <div className="mx-auto bg-primary/10 p-4 rounded-full w-fit mb-4">
+          {/* Simple animation for checkmark - could be more elaborate */}
           <CheckCircle className="h-20 w-20 text-primary animate-pulse" />
         </div>
         <CardTitle className="text-3xl font-bold text-primary">🎉 Pack Confirmed!</CardTitle>
         <CardDescription className="text-lg text-muted-foreground mt-2 px-4">
           You’ve packed {orderDetails.itemsCount} item{orderDetails.itemsCount !== '1' ? 's' : ''} for RM {orderDetails.totalAmount}.
+          <br />
+          Pickup between {formattedDate}, {pickupTimeString}.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6 px-6 pb-8">
@@ -58,40 +62,29 @@ function OrderConfirmationContent() {
           <p className="text-base">
             <span className="font-semibold">Ref ID:</span> {orderDetails.orderId}
           </p>
-          <p className="text-base">
-            <span className="font-semibold">Pickup between:</span><br/> 
-            {formattedDate}, {orderDetails.pickupTime || 'N/A'}
-          </p>
           {orderDetails.unit && (
             <p className="text-base">
               <span className="font-semibold">Unit/House No.:</span> {orderDetails.unit}
             </p>
           )}
         </div>
-        
+
         <p className="text-sm text-muted-foreground">
-          Your list has been submitted for packing. Get ready for your pickup!
+          Your list has been submitted. Get ready for your pickup!
         </p>
-        
-        <Button 
+
+        <Button
           onClick={() => {
-            // Clear cart again just in case and navigate
-            if (typeof window !== 'undefined') localStorage.removeItem('good2go_cart');
-            router.push('/checkout');
+            if (typeof window !== 'undefined') localStorage.removeItem('good2go_cart'); // Ensure cart is clear
+            router.push('/checkout'); // Navigate to packing page to start a new pack
           }}
           variant="default"
           className="w-full h-12 text-base bg-accent hover:bg-accent/90 text-accent-foreground rounded-lg shadow-md flex items-center gap-2"
         >
           <RefreshCw className="h-5 w-5" /> Start New Pack
         </Button>
-        
-        <Button 
-          variant="outline" 
-          onClick={() => router.push('/')} 
-          className="w-full h-12 text-base rounded-lg flex items-center gap-2"
-        >
-          <Home className="h-5 w-5" /> Back to Home
-        </Button>
+
+        {/* "Back to Home" button removed as per prompt */}
       </CardContent>
     </Card>
   );
@@ -115,4 +108,3 @@ export default function OrderConfirmationPage() {
     </div>
   );
 }
-
