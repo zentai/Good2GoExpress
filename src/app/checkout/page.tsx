@@ -12,8 +12,6 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
-// ScrollArea and ScrollBar might not be needed for dates if 3 fit well.
-// import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Package, Home as HomeIcon, ShoppingBag, CheckCircle, MessageSquare, PlusCircle, MinusCircle, ArrowLeftCircle, Rocket, CalendarDays, Clock, ShoppingCart, Edit3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -47,8 +45,9 @@ function TrayItemDisplay({ item, onUpdateQuantity }: TrayItemDisplayProps) {
   return (
     <div className="py-4 border-b border-border last:border-b-0">
       <div className="flex justify-between items-center mb-1">
-        <p className="font-medium text-foreground text-lg flex-grow">
-          {emoji} {item.name}
+        <p className="font-medium text-foreground text-lg flex-grow flex items-center">
+          <span className="mr-2 text-xl">{emoji}</span>
+          {item.name}
         </p>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={handleDecrease} className="h-11 w-11 rounded-full hover:bg-secondary active:bg-secondary/80">
@@ -60,7 +59,7 @@ function TrayItemDisplay({ item, onUpdateQuantity }: TrayItemDisplayProps) {
           </Button>
         </div>
       </div>
-      <p className="text-sm text-muted-foreground pl-8"> {/* Indent to align with name roughly */}
+      <p className="text-sm text-muted-foreground pl-10"> {/* Indent to align with name roughly */}
         RM {item.price.toFixed(2)} &times; {item.quantity} = <span className="font-medium text-foreground">RM {(item.quantity * item.price).toFixed(2)}</span>
       </p>
     </div>
@@ -92,7 +91,7 @@ interface PackingPageContentProps {
     count: number,
     unit: string,
     sendWhatsApp: boolean,
-    availableSlotsForDate: string[], // Pass up available slots for parent to know
+    availableSlotsForDate: string[], 
   }) => void;
   initialTrayItems: OrderItem[];
   initialUnitNumber: string;
@@ -123,8 +122,8 @@ function PackingPageContent({
 
   const availableDates = useMemo(() => {
     const dates = [];
-    const today = startOfDay(new Date()); // Use startOfDay for consistent comparisons
-    for (let i = 0; i < 3; i++) { // Show next 3 days
+    const today = startOfDay(new Date()); 
+    for (let i = 0; i < 3; i++) { 
       dates.push(addDays(today, i));
     }
     return dates;
@@ -151,18 +150,20 @@ function PackingPageContent({
     if (selectedDate) {
       const newSlots = getAvailableTimeSlots(selectedDate);
       setAvailableSlotsForSelectedDate(newSlots);
-      // Auto-select the first available slot if current selection is invalid or no selection
+      
       if (newSlots.length > 0 && (!selectedPickupTime || !newSlots.includes(selectedPickupTime))) {
-        setSelectedPickupTime(newSlots[0]);
-      } else if (newSlots.length === 0) {
-        setSelectedPickupTime(''); // Reset if no slots available
+        setSelectedPickupTime(newSlots[0]); 
+      } else if (newSlots.length === 0 && selectedPickupTime) {
+        setSelectedPickupTime(''); 
+      } else if (newSlots.length > 0 && newSlots.includes(initialSelectedPickupTime) && !selectedPickupTime) {
+        setSelectedPickupTime(initialSelectedPickupTime); // Restore initial if valid for new date
       }
     } else {
       setAvailableSlotsForSelectedDate([]);
       setSelectedPickupTime('');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate, getAvailableTimeSlots]); // selectedPickupTime removed from deps to allow default selection
+  }, [selectedDate, getAvailableTimeSlots, initialSelectedPickupTime]);
 
 
   useEffect(() => {
@@ -170,7 +171,7 @@ function PackingPageContent({
     setUnitNumber(initialUnitNumber);
     setSendViaWhatsApp(initialSendViaWhatsApp);
     setSelectedDate(initialSelectedDate);
-    // setSelectedPickupTime is handled by the effect above based on initialSelectedDate
+    // setSelectedPickupTime is handled by the effect above
     setIsLoading(false);
   }, [initialTrayItems, initialUnitNumber, initialSendViaWhatsApp, initialSelectedDate]);
 
@@ -194,7 +195,7 @@ function PackingPageContent({
     if (typeof window !== 'undefined' && !isLoading) {
         localStorage.setItem('good2go_cart', JSON.stringify(trayItems));
     }
-    // This effect now also passes up availableSlotsForSelectedDate
+    
     onStateChangeForParent({
       items: trayItems,
       pickupDate: selectedDate,
@@ -203,7 +204,7 @@ function PackingPageContent({
       count: totals.count,
       unit: unitNumber,
       sendWhatsApp: sendViaWhatsApp,
-      availableSlotsForDate: availableSlotsForSelectedDate, // Pass this up
+      availableSlotsForDate: availableSlotsForSelectedDate,
     });
 
     if (trayItems.length === 0 && !isLoading) {
@@ -256,7 +257,7 @@ function PackingPageContent({
         <CardTitle className="text-3xl font-bold text-primary">Let’s Pack!</CardTitle>
         <CardDescription className="text-muted-foreground mt-1 px-2">You’re almost ready! Tweak your loadout and hit GO.</CardDescription>
       </CardHeader>
-      <CardContent className="p-4 sm:p-6 space-y-8"> {/* Increased space-y for step separation */}
+      <CardContent className="p-4 sm:p-6 space-y-8">
         <div>
           <p className="text-xs text-muted-foreground mb-1">Step 1 of 4</p>
           <h3 className="text-xl font-semibold text-foreground mb-3 pb-2 border-b flex items-center gap-2">
@@ -409,7 +410,7 @@ export default function PackingPage() {
     setTotalAmountGlobal(initialTotal);
     setTotalItemCountGlobal(initialItemCount);
 
-    if (initialTray.length === 0 && (router as any).pathname === '/checkout') {
+    if (initialTray.length === 0 && (router as any).pathname === '/checkout') { // Ensure router is available
         toast({
           title: "Your Packing List is Empty",
           description: "Let's add some items first!",
@@ -417,25 +418,27 @@ export default function PackingPage() {
           duration: 3000,
         });
         router.push('/');
-        return;
+        return; // Exit early if redirecting
     }
-    setIsInitialLoading(false);
+    setIsInitialLoading(false); // Set loading to false after initial setup and potential redirect
 
+    // Event listener for storage changes (e.g. from other tabs)
     const handleStorageChange = (event: StorageEvent) => {
-        if (event.key === 'good2go_cart' || event.key === null) {
+        if (event.key === 'good2go_cart' || event.key === null) { // event.key === null for localStorage.clear()
             const currentCartData = localStorage.getItem('good2go_cart');
             let updatedCart: OrderItem[] = [];
             if (currentCartData) {
                 try {
                     updatedCart = JSON.parse(currentCartData);
-                } catch {}
+                } catch { /* ignore parse error */ }
             }
-            setTrayItemsGlobal(updatedCart);
+            setTrayItemsGlobal(updatedCart); // Update state based on localStorage
             const newTotal = updatedCart.reduce((sum, item) => sum + item.price * item.quantity, 0);
             const newCount = updatedCart.reduce((sum, item) => sum + item.quantity, 0);
             setTotalAmountGlobal(newTotal);
             setTotalItemCountGlobal(newCount);
 
+            // If cart becomes empty while on checkout page, redirect
             if (updatedCart.length === 0 && (router as any).pathname === '/checkout') {
                 toast({ title: "List Cleared", description: "Your packing list was cleared.", duration: 2000 });
                 router.push('/');
@@ -446,8 +449,8 @@ export default function PackingPage() {
         }
     };
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, [router, toast]);
+    return () => window.removeEventListener('storage', handleStorageChange); // Cleanup
+  }, [router, toast]); // Dependencies for initial load effect
 
 
   const handleContentStateChange = useCallback((data: {
@@ -489,6 +492,7 @@ export default function PackingPage() {
         throw new Error("Failed to submit packing list to backend.");
       }
 
+      // Prepare data for confirmation page and WhatsApp
       const queryParams = new URLSearchParams({
         itemsCount: totalItemCountGlobal.toString(),
         totalAmount: totalAmountGlobal.toFixed(2),
@@ -498,7 +502,7 @@ export default function PackingPage() {
         orderId: firebaseResponse.orderId,
       });
 
-      localStorage.removeItem('good2go_cart');
+      localStorage.removeItem('good2go_cart'); // Clear cart after successful submission logic starts
 
       if (sendViaWhatsAppGlobal) {
         let packingDetails = "Hi Good2Go Express! I've packed my stash:\n\n";
@@ -518,10 +522,12 @@ export default function PackingPage() {
 
         const whatsappUrl = `https://wa.me/${WHATSAPP_PHONE_NUMBER}?text=${encodeURIComponent(packingDetails)}`;
         
+        // Navigate to confirmation first, then open WhatsApp
         router.push(`/order-confirmation?${queryParams.toString()}`);
-        window.open(whatsappUrl, '_blank');
+        window.open(whatsappUrl, '_blank'); // Open WhatsApp in new tab
 
       } else {
+         // Navigate to confirmation page if WhatsApp is not selected
          router.push(`/order-confirmation?${queryParams.toString()}`);
       }
 
@@ -539,6 +545,7 @@ export default function PackingPage() {
   };
 
   const handleGoButtonClick = () => {
+    // Validations for proceeding
     if (trayItemsGlobal.length === 0) {
       toast({ title: "List Empty", description: "Your packing list is empty. Add some items first!", variant: "destructive" });
       return;
@@ -551,7 +558,7 @@ export default function PackingPage() {
         toast({ title: "Selection Needed", description: "Please select an available pickup time slot.", variant: "destructive" });
         return;
     }
-    if (availableSlotsForDateGlobal.length === 0 && selectedDateGlobal) {
+    if (availableSlotsForDateGlobal.length === 0 && selectedDateGlobal) { // Double check, should be caught by button state
          toast({ title: "No Slots", description: "No pickup slots available for the selected date. Please choose another date.", variant: "destructive" });
         return;
     }
@@ -571,6 +578,7 @@ export default function PackingPage() {
     }
   };
 
+  // Initial Loading UI
   if (isInitialLoading) {
     return (
       <div className="flex flex-col min-h-screen bg-background">
@@ -583,27 +591,26 @@ export default function PackingPage() {
     );
   }
 
-  let goButtonText = `Go (RM ${totalAmountGlobal.toFixed(2)} * ${totalItemCountGlobal} ${totalItemCountGlobal === 1 ? 'item' : 'items'})`;
+  // Determine Go Button state and text
   let isGoButtonDisabled = isSubmittingGlobal || trayItemsGlobal.length === 0;
+  let goButtonText: string;
 
-  if (trayItemsGlobal.length > 0) {
-    if (!selectedDateGlobal) {
-      goButtonText = "🚫 Please select pickup date";
-      isGoButtonDisabled = true;
-    } else if (availableSlotsForDateGlobal.length === 0) {
-      goButtonText = "🚫 No slots for this date";
-      isGoButtonDisabled = true;
-    } else if (!selectedPickupTimeGlobal) {
-      goButtonText = "🚫 Please select pickup time";
-      isGoButtonDisabled = true;
-    }
-  } else {
-    goButtonText = "List is Empty"; // or keep the default if preferred
-    isGoButtonDisabled = true;
-  }
   if (isSubmittingGlobal) {
     goButtonText = "Submitting...";
     isGoButtonDisabled = true;
+  } else if (trayItemsGlobal.length === 0) {
+    goButtonText = "List is Empty";
+    isGoButtonDisabled = true;
+  } else {
+    goButtonText = `🚀 Go (RM ${totalAmountGlobal.toFixed(2)} | ${totalItemCountGlobal} ${totalItemCountGlobal === 1 ? 'item' : 'items'})`;
+    if (!selectedDateGlobal) {
+      isGoButtonDisabled = true;
+      // The button text remains the same, but it's disabled. A toast will show the reason if clicked.
+    } else if (availableSlotsForDateGlobal.length === 0) {
+      isGoButtonDisabled = true;
+    } else if (!selectedPickupTimeGlobal) {
+      isGoButtonDisabled = true;
+    }
   }
 
 
@@ -681,12 +688,13 @@ export default function PackingPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Fixed Footer Buttons */}
       <div className="fixed bottom-0 left-0 right-0 z-[60] p-3 bg-card/95 backdrop-blur-sm border-t border-border shadow-lg print:hidden">
         <div className="container mx-auto max-w-lg flex items-center justify-between gap-3">
             <Button
               onClick={() => router.push('/')}
               variant="outline"
-              className="flex-1 h-14 text-md rounded-xl shadow-sm flex items-center justify-center gap-2" // flex-1 for 1 part
+              className="flex-1 h-14 text-md rounded-xl shadow-sm flex items-center justify-center gap-2"
             >
               <ShoppingCart className="mr-1 h-5 w-5" /> Shop More
             </Button>
@@ -694,17 +702,21 @@ export default function PackingPage() {
               onClick={handleGoButtonClick}
               disabled={isGoButtonDisabled}
               className={cn(
-                "flex-[2_1_0%] h-14 text-md rounded-xl shadow-md flex items-center justify-center gap-2 transition-all duration-150 ease-in-out active:scale-95", // flex-[2_1_0%] for 2 parts
-                isGoButtonDisabled && !isSubmittingGlobal && trayItemsGlobal.length > 0 ? "bg-muted text-muted-foreground hover:bg-muted" : "bg-accent hover:bg-accent/90 text-accent-foreground"
+                "flex-[2_1_0%] h-14 text-md rounded-xl shadow-md flex items-center justify-center gap-2 transition-all duration-150 ease-in-out active:scale-95",
+                (trayItemsGlobal.length === 0 && !isSubmittingGlobal)
+                  ? "bg-muted text-muted-foreground" // Distinct style for "List is Empty"
+                  // For other states (active, submitting, or disabled due to missing selections but cart not empty),
+                  // use accent color. The `disabled:opacity-50` from base button styles will make it lighter.
+                  : "bg-accent text-accent-foreground hover:bg-accent/90"
               )}
             >
               {isSubmittingGlobal ? (
                 <>
-                  <ShoppingBag className="mr-2 h-6 w-6 animate-spin" /> Submitting...
+                  <ShoppingBag className="mr-2 h-6 w-6 animate-spin" /> {goButtonText}
                 </>
               ) : (
                 <>
-                  {goButtonText.startsWith("🚀") && <Rocket className="mr-1 h-5 w-5 group-hover:animate-pulse" />}
+                  <Rocket className="mr-1 h-5 w-5 group-hover:animate-pulse" />
                   {goButtonText}
                 </>
               )}
@@ -714,3 +726,4 @@ export default function PackingPage() {
     </div>
   );
 }
+
