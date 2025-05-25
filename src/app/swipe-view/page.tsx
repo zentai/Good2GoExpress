@@ -148,7 +148,7 @@ export default function SwipeViewPage() {
     },
     onSwipedUp: () => {
       if (isDescriptionExpanded) return; // Disable if description is expanded
-      router.push('/checkout');
+      router.push('/');
     },
     onSwipedDown: () => {
       if (isDescriptionExpanded) return; // Disable if description is expanded
