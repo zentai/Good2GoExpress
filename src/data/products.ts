@@ -4,11 +4,12 @@
 
 import type { Product, ProductCategorySlug } from '@/lib/types';
 import { db } from '@/lib/firebase'; // Assuming db is exported from firebase.ts
-import { collection, getDocs, doc, getDoc, query, where, DocumentData } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, query, where, DocumentData, Timestamp } from 'firebase/firestore';
 
 // Helper function to convert Firestore doc data to Product type
 const mapDocToProduct = (docData: DocumentData, id: string): Product => {
   // Ensure all fields are correctly typed and defaults are handled if necessary
+  console.log(docData);
   return {
     id: id,
     name: docData.name || '',
@@ -22,6 +23,8 @@ const mapDocToProduct = (docData: DocumentData, id: string): Product => {
     qty: typeof docData.qty === 'number' ? docData.qty : 0,
     // Status is a getter in the original mock, so we derive it or expect it from Firestore
     get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; },
+    createdAt: docData.createdAt instanceof Timestamp ? docData.createdAt.toDate().toISOString() : docData.createdAt,
+    updatedAt: docData.updatedAt instanceof Timestamp ? docData.updatedAt.toDate().toISOString() : docData.updatedAt,
     ...docData, // Spread remaining fields, ensure type safety if possible
   } as Product;
 };

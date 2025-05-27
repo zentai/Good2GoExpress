@@ -19,25 +19,42 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    fetch(event.request)
-      .then((networkResponse) => {
-        // 如果網路請求成功，將回應存入快取並返回回應
-        return caches.open(CACHE_NAME)
-          .then((cache) => {
-            // 重要：檢查回應是否有效，例如狀態碼為 200
-            // 並且回應類型不是 opaque（不透明），因為不透明回應無法被快取
-            if (networkResponse.ok && networkResponse.type === 'basic') {
-              cache.put(event.request, networkResponse.clone());
-            }
-            return networkResponse;
-          });
-      })
-      .catch(() => {
-        // 如果網路請求失敗，則從快取中獲取資源
-        return caches.match(event.request);
-      })
-  );
+  // 只處理 GET 請求和 http/https 協定
+  if (event.request.method === 'GET' && (event.request.url.startsWith('http://') || event.request.url.startsWith('https://'))) {
+    event.respondWith(
+      caches.match(event.request)
+        .then((cachedResponse) => {
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+
+          return fetch(event.request)
+            .then((response) => {
+              // 檢查回應是否有效
+              if (!response || response.status !== 200 || response.type !== 'basic') {
+                return response;
+              }
+
+              // 複製回應，因為回應流只能讀取一次
+              const responseToCache = response.clone();
+
+              caches.open('my-cache') // 將 'my-cache' 替換為你的快取名稱
+                .then((cache) => {
+                  cache.put(event.request, responseToCache);
+                });
+
+              return response;
+            });
+        })
+        .catch((error) => {
+          console.error('Fetching failed:', error);
+          // 你可以在這裡提供一個離線備用頁面
+        })
+    );
+  } else {
+    // 對於非 GET 或不支援協定的請求，直接執行網路請求
+    event.respondWith(fetch(event.request));
+  }
 });
 
 self.addEventListener('activate', (event) => {

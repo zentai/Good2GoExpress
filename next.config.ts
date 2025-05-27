@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   images: {
+    domains: [
+      'firebasestorage.googleapis.com',
+      // 其他你允許載入圖片的主機名
+    ],
     remotePatterns: [
       {
         protocol: 'https',
