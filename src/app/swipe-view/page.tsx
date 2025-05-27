@@ -1,16 +1,17 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
-import { useSwipeable, type SwipeEventData } from 'react-swipeable';
-import { mockProducts } from '@/data/products';
+import { useSwipeable } from 'react-swipeable';
+import { loadProductsFromFirestore } from '@/data/products'; // Updated import
 import type { Product, OrderItem } from '@/lib/types';
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
-import { X, Plus, ShoppingBag, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react';
+import { X, Plus, ShoppingBag, ChevronLeft, ChevronRight as ChevronRightIcon, ImageOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton'; // For loading state
 
 const getProductIndexById = (id: string, products: Product[]): number => {
   return products.findIndex(p => p.id === id);
@@ -26,15 +27,13 @@ export default function SwipeViewPage() {
   const [trayItems, setTrayItems] = useState<OrderItem[]>([]);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [actionFeedback, setActionFeedback] = useState<'added' | 'skipped' | null>(null);
   const [animationKey, setAnimationKey] = useState(0);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-
+  // Load tray items from localStorage on initial mount
   useEffect(() => {
-    setIsLoading(true);
-    setAllProducts(mockProducts);
-
     const savedTray = localStorage.getItem('good2go_cart');
     if (savedTray) {
       try {
@@ -43,33 +42,54 @@ export default function SwipeViewPage() {
       } catch (e) {
         console.error("Failed to parse tray from localStorage", e);
         setTrayItems([]);
+        localStorage.removeItem('good2go_cart');
       }
     }
+  }, []);
 
-    const initialProductId = searchParams.get('productId');
-    let initialIndex = 0;
-    if (initialProductId && mockProducts.length > 0) {
-      const foundIndex = getProductIndexById(initialProductId, mockProducts);
-      if (foundIndex !== -1) {
-        initialIndex = foundIndex;
+  // Fetch all products and set initial product based on query param
+  useEffect(() => {
+    const fetchAndSetProducts = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const products = await loadProductsFromFirestore();
+        setAllProducts(products);
+
+        if (products.length > 0) {
+          const initialProductId = searchParams.get('productId');
+          let initialIndex = 0;
+          if (initialProductId) {
+            const foundIndex = getProductIndexById(initialProductId, products);
+            if (foundIndex !== -1) {
+              initialIndex = foundIndex;
+            }
+          }
+          setCurrentIndex(initialIndex);
+          setCurrentProduct(products[initialIndex] || products[0]);
+          setAnimationKey(prev => prev + 1);
+          setCurrentImageIndex(0);
+          setIsDescriptionExpanded(false);
+        } else {
+          setCurrentProduct(null); // No products available
+        }
+      } catch (err) {
+        console.error("Failed to fetch products for swipe view:", err);
+        setError("Failed to load products. Please try again later.");
+        setAllProducts([]);
+        setCurrentProduct(null);
+      } finally {
+        setIsLoading(false);
       }
-    }
-    
-    setCurrentIndex(initialIndex);
-    if (mockProducts.length > 0) {
-      setCurrentProduct(mockProducts[initialIndex] || mockProducts[0]);
-    } else {
-      setCurrentProduct(null);
-    }
-    setAnimationKey(prev => prev + 1);
-    setCurrentImageIndex(0);
-    setIsDescriptionExpanded(false); // Ensure description is collapsed for new product
-    setIsLoading(false);
+    };
+
+    fetchAndSetProducts();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]); // Only re-run if searchParams (productId) changes
 
+  // Save trayItems to localStorage whenever it changes
   useEffect(() => {
-    if (!isLoading && (trayItems.length > 0 || localStorage.getItem('good2go_cart') !== null)) {
+    if (!isLoading && (trayItems.length > 0 || localStorage.getItem('good2go_cart') !== JSON.stringify(trayItems))) {
       localStorage.setItem('good2go_cart', JSON.stringify(trayItems));
     }
   }, [trayItems, isLoading]);
@@ -82,13 +102,14 @@ export default function SwipeViewPage() {
   }, []);
 
   const advanceToNextProduct = useCallback(() => {
-    setIsDescriptionExpanded(false);
     scrollSwipeContainerToTop();
     setCurrentImageIndex(0);
+    setIsDescriptionExpanded(false); // Always collapse description for new product
     
     setCurrentIndex(prevIndex => {
       const nextIdx = prevIndex + 1;
       if (nextIdx >= allProducts.length) {
+        // Removed toast, directly navigate
         router.push('/checkout'); 
         return prevIndex; 
       }
@@ -113,13 +134,16 @@ export default function SwipeViewPage() {
         price: currentProduct.price,
         quantity: 1,
       };
+      // Ensure no duplicates, though isItemInTray should prevent this
+      const existing = prevItems.find(item => item.productId === currentProduct.id);
+      if (existing) return prevItems;
       return [...prevItems, newItem];
     });
     setTimeout(() => {
       advanceToNextProduct();
       setActionFeedback(null);
-    }, 300);
-  }, [currentProduct, advanceToNextProduct, isItemInTray, trayItems]);
+    }, 300); // Animation duration
+  }, [currentProduct, advanceToNextProduct, isItemInTray, trayItems]); // Added trayItems to dependencies
 
   const handleSkip = useCallback(() => {
     if (!currentProduct) return;
@@ -127,7 +151,7 @@ export default function SwipeViewPage() {
     setTimeout(() => {
       advanceToNextProduct();
       setActionFeedback(null);
-    }, 300);
+    }, 300); // Animation duration
   }, [currentProduct, advanceToNextProduct]);
 
   const toggleDescription = useCallback(() => {
@@ -138,46 +162,78 @@ export default function SwipeViewPage() {
     }
   }, [isDescriptionExpanded, scrollSwipeContainerToTop]);
   
-
   const swipeHandlers = useSwipeable({
     onSwipedLeft: (eventData) => {
+      if (isDescriptionExpanded && eventData.event.target instanceof HTMLElement && eventData.event.target.closest('.scrollable-description')) return;
       handleSkip();
     },
     onSwipedRight: (eventData) => {
+      if (isDescriptionExpanded && eventData.event.target instanceof HTMLElement && eventData.event.target.closest('.scrollable-description')) return;
       handleAddToPack();
     },
     onSwipedUp: () => {
-      if (isDescriptionExpanded) return; // Disable if description is expanded
-      router.push('/');
+      if (isDescriptionExpanded) return;
+      router.push('/checkout');
     },
     onSwipedDown: () => {
-      if (isDescriptionExpanded) return; // Disable if description is expanded
+      if (isDescriptionExpanded) return;
       router.push('/');
     },
-    preventScrollOnSwipe: !isDescriptionExpanded, // Allow native scroll when description is expanded
+    preventScrollOnSwipe: !isDescriptionExpanded,
     trackMouse: true,
-    delta: 10,
+    delta: 30, // Min distance for swipe action
   });
 
   const handleNextImage = (e: React.MouseEvent) => {
-    e.stopPropagation();
+    e.stopPropagation(); // Prevent card swipe
     if (currentProduct && currentProduct.imageUrls.length > 1) {
       setCurrentImageIndex(prev => (prev + 1) % currentProduct.imageUrls.length);
     }
   };
 
   const handlePrevImage = (e: React.MouseEvent) => {
-    e.stopPropagation();
+    e.stopPropagation(); // Prevent card swipe
     if (currentProduct && currentProduct.imageUrls.length > 1) {
       setCurrentImageIndex(prev => (prev - 1 + currentProduct.imageUrls.length) % currentProduct.imageUrls.length);
     }
   };
 
-  if (isLoading || !currentProduct) {
+  if (isLoading) {
     return (
-      <div className="flex flex-col min-h-screen items-center justify-center bg-background">
-        <ShoppingBag className="h-16 w-16 animate-spin text-primary" />
-        <p className="mt-4 text-lg text-muted-foreground">Loading products...</p>
+      <div className="flex flex-col h-screen bg-background overflow-hidden antialiased">
+        <div className="fixed top-0 left-0 right-0 z-50 flex justify-center py-2 bg-transparent">
+          <Header />
+        </div>
+        <div className="flex-grow flex flex-col items-center justify-center pt-16 pb-28">
+          <Skeleton className="w-full max-w-sm md:max-w-md aspect-[3/4] max-h-[65vh] rounded-xl shadow-2xl bg-muted" />
+          <Skeleton className="w-full max-w-sm md:max-w-md h-24 mt-4 rounded-lg bg-muted" />
+        </div>
+        <div className="fixed bottom-0 left-0 right-0 z-50 p-3 bg-background/80 backdrop-blur-sm border-t border-border">
+          <div className="container mx-auto max-w-md flex items-center justify-around gap-3">
+            <Skeleton className="flex-1 h-14 rounded-full bg-muted" />
+            <Skeleton className="flex-1 h-14 rounded-full bg-muted" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+     return (
+      <div className="flex flex-col h-screen items-center justify-center bg-background">
+        <Header />
+        <p className="mt-4 text-lg text-destructive text-center px-4">{error}</p>
+        <Button onClick={() => router.push('/')} className="mt-6">Back to Home</Button>
+      </div>
+    );
+  }
+  
+  if (!currentProduct) {
+    return (
+      <div className="flex flex-col h-screen items-center justify-center bg-background">
+         <Header />
+        <p className="mt-4 text-lg text-muted-foreground">No more products to show!</p>
+        <Button onClick={() => router.push('/checkout')} className="mt-6">Go to Pack</Button>
       </div>
     );
   }
@@ -199,11 +255,10 @@ export default function SwipeViewPage() {
 
       <div
         className={cn(
-          "main-swipe-container flex-grow flex flex-col items-center pt-16 pb-28 relative",
+          "main-swipe-container flex-grow flex flex-col items-center pt-16 pb-28 relative touch-pan-y", // touch-pan-y to allow vertical scroll when description expanded
           isDescriptionExpanded ? "overflow-y-auto justify-start" : "overflow-hidden justify-center"
         )}
         {...swipeHandlers}
-        // Removed onClick={isDescriptionExpanded ? collapseDescription : undefined}
       >
         {currentProduct && (
           <div 
@@ -216,16 +271,23 @@ export default function SwipeViewPage() {
           >
             <div 
               className="relative w-full aspect-[3/4] max-h-[65vh] bg-muted rounded-xl shadow-2xl overflow-hidden group"
-              // Removed onClick related to description collapse from image container
+              onClick={isDescriptionExpanded ? toggleDescription : undefined} // Click image to collapse description
             >
-              <Image
-                src={currentProduct.imageUrls[currentImageIndex]}
-                alt={currentProduct.name}
-                fill
-                priority
-                className="object-cover pointer-events-none" 
-                data-ai-hint={currentProduct.dataAiHint || "product image"}
-              />
+              {currentProduct.imageUrls && currentProduct.imageUrls.length > 0 ? (
+                <Image
+                  src={currentProduct.imageUrls[currentImageIndex]}
+                  alt={currentProduct.name}
+                  fill
+                  priority
+                  className="object-cover pointer-events-none" 
+                  data-ai-hint={currentProduct.dataAiHint || "product image"}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full bg-muted text-muted-foreground">
+                  <ImageOff className="h-16 w-16" />
+                </div>
+              )}
+
               {hasMultipleImages && (
                 <>
                   <div 
@@ -246,6 +308,22 @@ export default function SwipeViewPage() {
                        <ChevronRightIcon className="h-6 w-6 text-white" />
                     </div>
                   </div>
+                   <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex space-x-2">
+                    {currentProduct.imageUrls.map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCurrentImageIndex(index);
+                        }}
+                        className={cn(
+                          "h-2 w-2 rounded-full transition-all duration-300",
+                          currentImageIndex === index ? "bg-white scale-125" : "bg-white/50 hover:bg-white/75"
+                        )}
+                        aria-label={`Go to image ${index + 1}`}
+                      />
+                    ))}
+                  </div>
                 </>
               )}
 
@@ -263,29 +341,11 @@ export default function SwipeViewPage() {
                   {currentProduct.badge.text}
                 </div>
               )}
-               {hasMultipleImages && (
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex space-x-2">
-                  {currentProduct.imageUrls.map((_, index) => (
-                    <button
-                      key={index}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setCurrentImageIndex(index);
-                      }}
-                      className={cn(
-                        "h-2 w-2 rounded-full transition-all duration-300",
-                        currentImageIndex === index ? "bg-white scale-125" : "bg-white/50 hover:bg-white/75"
-                      )}
-                      aria-label={`Go to image ${index + 1}`}
-                    />
-                  ))}
-                </div>
-              )}
             </div>
 
             <div
               className="w-full p-4 -mt-5 relative z-20 cursor-pointer"
-              onClick={toggleDescription} // Click this entire block to toggle
+              onClick={toggleDescription}
             >
               <div className={cn("p-4 bg-card rounded-lg shadow-lg")}>
                 <div className="flex justify-between items-start">
@@ -296,16 +356,16 @@ export default function SwipeViewPage() {
                 <div className="mt-2 text-sm text-muted-foreground">
                   {!isDescriptionExpanded ? (
                     <p className="line-clamp-1">
-                      {currentProduct.summary || currentProduct.description.split('.')[0] + '.'}
+                      {currentProduct.summary || (currentProduct.description && currentProduct.description.split('.')[0] + '.') || 'No summary available.'}
                     </p>
                   ) : (
                     <div
-                      className="whitespace-pre-line text-xs leading-relaxed pt-2 max-h-[140px] overflow-y-auto p-1 border rounded-md bg-background"
-                      onClick={(e) => e.stopPropagation()} // Prevent click on scrollable content from re-toggling
+                      className="scrollable-description whitespace-pre-line text-xs leading-relaxed pt-2 max-h-[140px] overflow-y-auto p-1 border rounded-md bg-background"
+                      onClick={(e) => e.stopPropagation()}
                       onTouchStart={(e) => e.stopPropagation()} 
                       onMouseDown={(e) => e.stopPropagation()}
                     >
-                      <p>{currentProduct.description}</p>
+                      <p>{currentProduct.description || 'No description available.'}</p>
                     </div>
                   )}
                 </div>
@@ -323,6 +383,7 @@ export default function SwipeViewPage() {
             className="flex-1 h-14 rounded-full shadow-md text-base font-medium border-2 hover:bg-muted active:scale-95"
             onClick={(e) => { e.stopPropagation(); handleSkip(); }}
             aria-label="Skip this product"
+            disabled={!currentProduct || actionFeedback !== null}
           >
             <X className="mr-1.5 h-5 w-5" /> Skip
           </Button>
@@ -330,13 +391,13 @@ export default function SwipeViewPage() {
             size="lg"
             className={cn(
               "flex-1 h-14 rounded-full shadow-lg text-base font-medium text-accent-foreground active:scale-95",
-              isItemInTray(currentProduct.id) ? "bg-green-600 hover:bg-green-700" : "bg-accent hover:bg-accent/90"
+              currentProduct && isItemInTray(currentProduct.id) ? "bg-green-600 hover:bg-green-700" : "bg-accent hover:bg-accent/90"
             )}
             onClick={(e) => { e.stopPropagation(); handleAddToPack(); }}
-            disabled={isItemInTray(currentProduct.id)}
-            aria-label={isItemInTray(currentProduct.id) ? `${currentProduct.name} is in pack` : `Add ${currentProduct.name} to pack`}
+            disabled={!currentProduct || (currentProduct && isItemInTray(currentProduct.id)) || actionFeedback !== null}
+            aria-label={currentProduct && isItemInTray(currentProduct.id) ? `${currentProduct.name} is in pack` : currentProduct ? `Add ${currentProduct.name} to pack` : 'Add to pack'}
           >
-            {isItemInTray(currentProduct.id) ? (
+            {currentProduct && isItemInTray(currentProduct.id) ? (
               <>
                 <Plus className="mr-1.5 h-5 w-5" /> In Pack
               </>
@@ -351,4 +412,3 @@ export default function SwipeViewPage() {
     </div>
   );
 }
-

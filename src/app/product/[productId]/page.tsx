@@ -4,14 +4,13 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { mockProducts } from '@/data/products';
+import { loadProductByIdFromFirestore } from '@/data/products'; // Updated import
 import type { Product, OrderItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Heart, PlusCircle, CheckCircle, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, Heart, PlusCircle, CheckCircle, ShoppingBag, ImageOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
-// Removed useToast import as it's no longer used for add/remove feedback here
-// import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton'; // For loading state
 
 export default function ProductDetailPage() {
   const router = useRouter();
@@ -21,34 +20,51 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<Product | null>(null);
   const [trayItems, setTrayItems] = useState<OrderItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  // const { toast } = useToast(); // Toasts removed for add/remove actions
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setIsLoading(true);
     let initialTray: OrderItem[] = [];
     if (typeof window !== 'undefined') {
         const savedTray = localStorage.getItem('good2go_cart');
         if (savedTray) {
             try {
-            initialTray = JSON.parse(savedTray);
+              initialTray = JSON.parse(savedTray);
+              if (!Array.isArray(initialTray)) initialTray = [];
             } catch (e) {
-            console.error("Failed to parse tray from localStorage on detail page", e);
-            initialTray = [];
+              console.error("Failed to parse tray from localStorage on detail page", e);
+              initialTray = [];
+              localStorage.removeItem('good2go_cart');
             }
         }
     }
     setTrayItems(initialTray);
     
     if (productId) {
-      const foundProduct = mockProducts.find((p) => p.id === productId);
-      setProduct(foundProduct || null);
+      const fetchProduct = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+          const fetchedProduct = await loadProductByIdFromFirestore(productId);
+          setProduct(fetchedProduct);
+        } catch (err) {
+          console.error(`Failed to fetch product ${productId}:`, err);
+          setError("Failed to load product details.");
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchProduct();
+    } else {
+      setIsLoading(false);
+      setError("Product ID is missing.");
     }
-    setIsLoading(false);
   }, [productId]);
 
   useEffect(() => {
-    if (!isLoading && (trayItems.length > 0 || localStorage.getItem('good2go_cart') !== null)) {
-        if (localStorage.getItem('good2go_cart') !== JSON.stringify(trayItems)) {
+    // Save trayItems to localStorage whenever it changes, but only after initial load
+    // and if the trayItems array itself is not the one causing the effect (to avoid loops if not careful)
+    if (!isLoading && (trayItems.length > 0 || localStorage.getItem('good2go_cart') !== JSON.stringify(trayItems))) {
+         if (localStorage.getItem('good2go_cart') !== JSON.stringify(trayItems)) {
             localStorage.setItem('good2go_cart', JSON.stringify(trayItems));
         }
     }
@@ -72,7 +88,6 @@ export default function ProductDetailPage() {
         updatedItems = prevItems.filter(
           (item) => item.productId !== product.id
         );
-        // Toast removed: toast({ title: "❌ Removed from list", description: `${product.name} removed.` });
       } else {
         updatedItems = [
           ...prevItems,
@@ -83,7 +98,6 @@ export default function ProductDetailPage() {
             quantity: 1,
           },
         ];
-        // Toast removed: toast({ title: "✅ Added to list", description: `${product.name} added.` });
       }
       return updatedItems;
     });
@@ -93,28 +107,74 @@ export default function ProductDetailPage() {
   const handleBottomBarAction = () => {
     if (!product) return;
     if (isItemInTray(product.id)) {
-      router.push('/checkout'); // Navigate to Packing Page
+      router.push('/checkout');
     } else {
-      handleToggleTrayItem(); // Add to pack and stay on page
+      handleToggleTrayItem();
     }
   };
 
-  if (isLoading && !product) {
+  if (isLoading) {
     return (
-      <div className="flex flex-col min-h-screen bg-background">
+      <div className="flex flex-col min-h-screen bg-background pb-24">
         <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-md shadow-sm">
-          <div className="container mx-auto px-4 py-3 flex items-center justify-between h-[57px]">
-            <ShoppingBag className="h-8 w-8 animate-pulse text-primary" />
+          <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+            <Button variant="ghost" size="icon" onClick={() => router.push('/')} aria-label="Back to Menu" disabled>
+              <ArrowLeft className="h-5 w-5 mr-1" />
+            </Button>
+            <Skeleton className="h-6 w-32 bg-muted" /> {/* Placeholder for title */}
+            <Button variant="ghost" size="icon" aria-label="Add to list" disabled>
+              <Heart className="h-6 w-6 text-muted-foreground" />
+            </Button>
           </div>
         </div>
-        <main className="flex-grow container mx-auto px-4 py-8 flex items-center justify-center">
-          <ShoppingBag className="h-16 w-16 animate-spin text-primary" />
-          <p className="ml-4 text-xl text-muted-foreground">Loading Product...</p>
+        <main className="flex-grow container mx-auto px-0 sm:px-4">
+          <Skeleton className="relative w-full aspect-[1/1] sm:aspect-square md:aspect-[3/2] max-h-[60vh] bg-muted" />
+          <div className="p-4 space-y-3 border-b">
+            <Skeleton className="h-8 w-3/4 bg-muted" />
+            <Skeleton className="h-8 w-1/4 bg-muted" />
+          </div>
+          <div className="p-4 space-y-2">
+            <Skeleton className="h-4 w-1/3 bg-muted mb-1" />
+            <Skeleton className="h-4 w-full bg-muted" />
+            <Skeleton className="h-4 w-full bg-muted" />
+            <Skeleton className="h-4 w-2/3 bg-muted mt-3" />
+          </div>
         </main>
+        <div className="fixed bottom-0 left-0 right-0 z-50 p-3 bg-card/95 backdrop-blur-sm border-t border-border shadow-lg">
+          <div className="container mx-auto max-w-xl">
+            <Button size="lg" className="w-full h-14" disabled>
+              <Skeleton className="h-6 w-24 bg-muted-foreground" />
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex flex-col min-h-screen bg-background">
+        <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-md shadow-sm">
+          <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+            <Button variant="ghost" size="icon" onClick={() => router.push('/')} aria-label="Back to Menu">
+              <ArrowLeft className="h-6 w-6" />
+            </Button>
+            <h1 className="text-lg font-semibold text-destructive truncate flex-1 text-center px-2">
+              Error
+            </h1>
+            <div className="w-10"></div> {/* Spacer */}
+          </div>
+        </div>
+        <main className="flex-grow container mx-auto px-4 py-8 text-center">
+          <p className="text-muted-foreground mb-6">{error}</p>
+          <Button onClick={() => router.push('/')} variant="outline">
+            Back to Menu
+          </Button>
+        </main>
+      </div>
+    );
+  }
+  
   if (!product) {
     return (
       <div className="flex flex-col min-h-screen bg-background">
@@ -142,7 +202,7 @@ export default function ProductDetailPage() {
   const currentItemInTray = isItemInTray(product.id);
 
   return (
-    <div className="flex flex-col min-h-screen bg-background pb-24"> {/* Padding bottom for fixed bar */}
+    <div className="flex flex-col min-h-screen bg-background pb-24">
       <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-md shadow-sm">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <Button variant="ghost" size="icon" onClick={() => router.push('/')} aria-label="Back to Menu">
@@ -161,7 +221,7 @@ export default function ProductDetailPage() {
         <div className="relative w-full aspect-[1/1] sm:aspect-square md:aspect-[3/2] max-h-[60vh] bg-muted overflow-hidden">
           {product.imageUrls && product.imageUrls.length > 0 ? (
             <Image
-              src={product.imageUrls[0]} // Display the first image
+              src={product.imageUrls[0]}
               alt={product.name}
               fill
               priority
@@ -169,7 +229,9 @@ export default function ProductDetailPage() {
               data-ai-hint={product.dataAiHint || "product image"}
             />
           ) : (
-            <div className="flex items-center justify-center h-full bg-muted text-muted-foreground">No Image Available</div>
+            <div className="flex items-center justify-center h-full bg-muted text-muted-foreground">
+              <ImageOff className="h-16 w-16" />
+            </div>
           )}
         </div>
 
@@ -205,7 +267,7 @@ export default function ProductDetailPage() {
             {product.description || "Delicious and freshly prepared for you."}
           </p>
           <p className="text-sm text-foreground leading-relaxed mt-3">
-            <span className="font-medium">Includes:</span> {product.summary || "🥬 Fresh Greens, 🍅 Ripe Tomatoes, 🌾 Quality Grains... and a touch of love!"}
+            <span className="font-medium">Includes:</span> {product.summary || "Details not available."}
           </p>
         </div>
       </main>
@@ -218,9 +280,10 @@ export default function ProductDetailPage() {
             className={cn(
               "w-full h-14 text-lg font-semibold rounded-xl shadow-md flex items-center justify-center gap-2 transition-all duration-150 ease-in-out active:scale-95",
               currentItemInTray
-                ? "bg-green-600 hover:bg-green-700 text-white" // Was previously using accent, changed for clarity
+                ? "bg-green-600 hover:bg-green-700 text-white"
                 : "bg-accent hover:bg-accent/90 text-accent-foreground"
             )}
+            disabled={!product} // Disable if product is null
           >
             {currentItemInTray ? (
               <>
@@ -228,7 +291,7 @@ export default function ProductDetailPage() {
               </>
             ) : (
               <>
-                <PlusCircle className="mr-2 h-6 w-6" /> Add to Pack | RM {product.price.toFixed(2)}
+                <PlusCircle className="mr-2 h-6 w-6" /> Add to Pack | RM {product?.price.toFixed(2)}
               </>
             )}
           </Button>
