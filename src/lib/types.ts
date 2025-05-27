@@ -25,10 +25,12 @@ export interface Product {
   price: number;
   description: string;
   summary?: string;
-  imageUrls: string[]; // Changed from imageUrl: string
+  imageUrls: string[];
   category: ProductCategorySlug;
   dataAiHint: string;
   badge?: ProductBadge;
+  qty: number; // Added quantity
+  status: 'has-stock' | 'out-of-stock'; // Added status
 }
 
 export interface OrderItem {
