@@ -5,12 +5,12 @@ import { getFirestore, Firestore } from 'firebase/firestore';
 
 // IMPORTANT: Replace these with your actual Firebase project configuration!
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyAuGujKvKHvFZ1I9GBgT2r81Uqv4AB7SdA",
+  authDomain: "good2go-express.firebaseapp.com",
+  projectId: "good2go-express",
+  storageBucket: "good2go-express.firebasestorage.app",
+  messagingSenderId: "905482893627",
+  appId: "1:905482893627:web:8a9b7ff74b2520160d9f1e"
 };
 
 let app: FirebaseApp;
