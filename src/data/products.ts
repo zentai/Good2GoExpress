@@ -18,7 +18,7 @@ export const mockProducts: Product[] = [
     category: 'snack-attack' as ProductCategorySlug,
     dataAiHint: 'chips spicy',
     badge: { text: '🔥 Hot', type: 'hot' },
-    qty: Math.floor(Math.random() * 21), // Random qty 0-20
+    qty: 12,
     get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
   },
   {
@@ -30,7 +30,7 @@ export const mockProducts: Product[] = [
     imageUrls: ['https://placehold.co/600x800.png'],
     category: 'snack-attack' as ProductCategorySlug,
     dataAiHint: 'cookies chocolate',
-    qty: Math.floor(Math.random() * 21),
+    qty: 12,
     get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
   },
   {
@@ -42,35 +42,9 @@ export const mockProducts: Product[] = [
     imageUrls: ['https://placehold.co/600x800.png'],
     category: 'snack-attack' as ProductCategorySlug,
     dataAiHint: 'ramen beef',
-    qty: Math.floor(Math.random() * 21),
+    qty: 12,
     get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
   },
-  {
-    id: 'sa4',
-    name: 'Salted Caramel Popcorn',
-    price: 4.25,
-    description: 'Sweet and salty, this gourmet popcorn is an irresistible treat for movie nights or anytime snacking. Each kernel is perfectly coated.',
-    summary: '🍿 Sweet, salty, irresistible.',
-    imageUrls: ['https://placehold.co/600x800.png'],
-    category: 'snack-attack' as ProductCategorySlug,
-    dataAiHint: 'popcorn caramel',
-    qty: Math.floor(Math.random() * 21),
-    get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
-  },
-  {
-    id: 'sa5',
-    name: 'Mini Pretzels Pouch',
-    price: 2.99,
-    description: 'Classic crunchy mini pretzels, lightly salted. A perfect on-the-go snack or for dipping. Comes in a convenient resealable pouch.',
-    summary: '🥨 Crunchy, salty, classic.',
-    imageUrls: ['https://placehold.co/600x800.png'],
-    category: 'snack-attack' as ProductCategorySlug,
-    dataAiHint: 'pretzels mini',
-    qty: Math.floor(Math.random() * 21),
-    get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
-  },
-
-
   // Thirst Quenchers
   {
     id: 'tq1',
@@ -82,7 +56,7 @@ export const mockProducts: Product[] = [
     category: 'thirst-quenchers' as ProductCategorySlug,
     dataAiHint: 'lemonade sparkling',
     badge: { text: '✨ NEW', type: 'new' },
-    qty: Math.floor(Math.random() * 21),
+    qty: 12,
     get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
   },
   {
@@ -94,7 +68,7 @@ export const mockProducts: Product[] = [
     imageUrls: ['https://placehold.co/600x800.png'],
     category: 'thirst-quenchers' as ProductCategorySlug,
     dataAiHint: 'coffee coldbrew',
-    qty: Math.floor(Math.random() * 21),
+    qty: 12,
     get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
   },
   {
@@ -106,34 +80,9 @@ export const mockProducts: Product[] = [
     imageUrls: ['https://placehold.co/600x800.png'],
     category: 'thirst-quenchers' as ProductCategorySlug,
     dataAiHint: 'coconut water',
-    qty: Math.floor(Math.random() * 21),
+    qty: 12,
     get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
   },
-  {
-    id: 'tq4',
-    name: 'Mango Lassi Smoothie',
-    price: 5.50,
-    description: 'Creamy and refreshing mango lassi smoothie, a blend of ripe mangoes and yogurt. A taste of tropical paradise.',
-    summary: '🥭 Creamy, tropical, delicious.',
-    imageUrls: ['https://placehold.co/600x800.png'],
-    category: 'thirst-quenchers' as ProductCategorySlug,
-    dataAiHint: 'mango lassi',
-    qty: Math.floor(Math.random() * 21),
-    get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
-  },
-  {
-    id: 'tq5',
-    name: 'Green Tea with Honey',
-    price: 2.75,
-    description: 'Soothing green tea lightly sweetened with natural honey. A perfect calming beverage, hot or iced. Antioxidant-rich.',
-    summary: '🍵 Soothing, light, healthy.',
-    imageUrls: ['https://placehold.co/600x800.png'],
-    category: 'thirst-quenchers' as ProductCategorySlug,
-    dataAiHint: 'green tea',
-    qty: Math.floor(Math.random() * 21),
-    get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
-  },
-
   // Everyday Essentials
   {
     id: 'ee1',
@@ -144,7 +93,7 @@ export const mockProducts: Product[] = [
     imageUrls: ['https://placehold.co/600x800.png'],
     category: 'everyday-essentials' as ProductCategorySlug,
     dataAiHint: 'toothbrush kit',
-    qty: Math.floor(Math.random() * 21),
+    qty: 12,
     get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
   },
   {
@@ -157,7 +106,7 @@ export const mockProducts: Product[] = [
     category: 'everyday-essentials' as ProductCategorySlug,
     dataAiHint: 'hand sanitizer',
     badge: { text: '⭐ Signature', type: 'signature' },
-    qty: Math.floor(Math.random() * 21),
+    qty: 12,
     get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
   },
   {
@@ -169,35 +118,9 @@ export const mockProducts: Product[] = [
     imageUrls: ['https://placehold.co/600x800.png'],
     category: 'everyday-essentials' as ProductCategorySlug,
     dataAiHint: 'wet wipes',
-    qty: Math.floor(Math.random() * 21),
+    qty: 12,
     get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
   },
-  {
-    id: 'ee4',
-    name: 'Lip Balm SPF 15',
-    price: 3.20,
-    description: 'Moisturizing lip balm with SPF 15 protection. Keeps your lips soft, smooth, and protected from the sun. Cherry flavor.',
-    summary: '👄 Moisturizing, SPF protection.',
-    imageUrls: ['https://placehold.co/600x800.png'],
-    category: 'everyday-essentials' as ProductCategorySlug,
-    dataAiHint: 'lip balm',
-    qty: Math.floor(Math.random() * 21),
-    get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
-  },
-  {
-    id: 'ee5',
-    name: 'Travel Size Deodorant',
-    price: 4.00,
-    description: 'Compact deodorant stick offering all-day freshness. Perfect for travel or gym bags. Subtle, clean scent.',
-    summary: '🌬️ All-day freshness, travel-friendly.',
-    imageUrls: ['https://placehold.co/600x800.png'],
-    category: 'everyday-essentials' as ProductCategorySlug,
-    dataAiHint: 'deodorant travel',
-    qty: Math.floor(Math.random() * 21),
-    get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
-  },
-
-
   // Home Helpers
   {
     id: 'hh1',
@@ -208,7 +131,7 @@ export const mockProducts: Product[] = [
     imageUrls: ['https://placehold.co/600x800.png'],
     category: 'home-helpers' as ProductCategorySlug,
     dataAiHint: 'batteries AA',
-    qty: Math.floor(Math.random() * 21),
+    qty: 12,
     get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
   },
   {
@@ -220,7 +143,7 @@ export const mockProducts: Product[] = [
     imageUrls: ['https://placehold.co/600x800.png'],
     category: 'home-helpers' as ProductCategorySlug,
     dataAiHint: 'night light',
-    qty: Math.floor(Math.random() * 21),
+    qty: 12,
     get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
   },
   {
@@ -232,34 +155,9 @@ export const mockProducts: Product[] = [
     imageUrls: ['https://placehold.co/600x800.png'],
     category: 'home-helpers' as ProductCategorySlug,
     dataAiHint: 'cleaning spray',
-    qty: Math.floor(Math.random() * 21),
+    qty: 12,
     get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
   },
-   {
-    id: 'hh4',
-    name: 'Reusable Shopping Bag',
-    price: 3.50,
-    description: 'Durable and foldable reusable shopping bag. An eco-friendly alternative to plastic bags. Holds a substantial amount of groceries.',
-    summary: '🛍️ Eco-friendly, durable, foldable.',
-    imageUrls: ['https://placehold.co/600x800.png'],
-    category: 'home-helpers' as ProductCategorySlug,
-    dataAiHint: 'reusable bag',
-    qty: Math.floor(Math.random() * 21),
-    get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
-  },
-  {
-    id: 'hh5',
-    name: 'Kitchen Sponge (3-pack)',
-    price: 2.80,
-    description: 'Heavy-duty kitchen sponges for effective cleaning. Dual-sided for scrubbing and wiping. Long-lasting and absorbent.',
-    summary: '🧽 Heavy-duty, dual-sided.',
-    imageUrls: ['https://placehold.co/600x800.png'],
-    category: 'home-helpers' as ProductCategorySlug,
-    dataAiHint: 'kitchen sponge',
-    qty: Math.floor(Math.random() * 21),
-    get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
-  },
-
   // Camp & Go
   {
     id: 'cg1',
@@ -271,7 +169,7 @@ export const mockProducts: Product[] = [
     category: 'camp-go' as ProductCategorySlug,
     dataAiHint: 'firstaid kit',
     badge: { text: '⚡ Limited', type: 'limited' },
-    qty: Math.floor(Math.random() * 21),
+    qty: 12,
     get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
   },
   {
@@ -283,7 +181,7 @@ export const mockProducts: Product[] = [
     imageUrls: ['https://placehold.co/600x800.png'],
     category: 'camp-go' as ProductCategorySlug,
     dataAiHint: 'insect repellent',
-    qty: Math.floor(Math.random() * 21),
+    qty: 12,
     get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
   },
   {
@@ -295,34 +193,9 @@ export const mockProducts: Product[] = [
     imageUrls: ['https://placehold.co/600x800.png'],
     category: 'camp-go' as ProductCategorySlug,
     dataAiHint: 'coffee sachets',
-    qty: Math.floor(Math.random() * 21),
+    qty: 12,
     get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
   },
-  {
-    id: 'cg4',
-    name: 'Waterproof Matches',
-    price: 3.00,
-    description: 'Reliable waterproof matches, essential for camping and outdoor survival. Come in a sealed container. Lights even when wet.',
-    summary: '🔥 Waterproof, reliable ignition.',
-    imageUrls: ['https://placehold.co/600x800.png'],
-    category: 'camp-go' as ProductCategorySlug,
-    dataAiHint: 'waterproof matches',
-    qty: Math.floor(Math.random() * 21),
-    get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
-  },
-  {
-    id: 'cg5',
-    name: 'Headlamp LED',
-    price: 15.00,
-    description: 'Bright LED headlamp with multiple modes. Perfect for hands-free lighting during camping, hiking, or power outages. Adjustable strap.',
-    summary: '🔦 Bright, hands-free, adjustable.',
-    imageUrls: ['https://placehold.co/600x800.png'],
-    category: 'camp-go' as ProductCategorySlug,
-    dataAiHint: 'led headlamp',
-    qty: Math.floor(Math.random() * 21),
-    get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
-  },
-
   // Best Bundles
   {
     id: 'bb1',
@@ -334,7 +207,7 @@ export const mockProducts: Product[] = [
     category: 'best-bundles' as ProductCategorySlug,
     dataAiHint: 'movie snacks',
     badge: { text: '🎁 Bundle Deal', type: 'custom' },
-    qty: Math.floor(Math.random() * 21),
+    qty: 12,
     get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
   },
   {
@@ -346,7 +219,7 @@ export const mockProducts: Product[] = [
     imageUrls: ['https://placehold.co/600x800.png'],
     category: 'best-bundles' as ProductCategorySlug,
     dataAiHint: 'breakfast kit',
-    qty: Math.floor(Math.random() * 21),
+    qty: 12,
     get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
   },
   {
@@ -358,31 +231,7 @@ export const mockProducts: Product[] = [
     imageUrls: ['https://placehold.co/600x800.png'],
     category: 'best-bundles' as ProductCategorySlug,
     dataAiHint: 'travel kit',
-    qty: Math.floor(Math.random() * 21),
-    get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
-  },
-  {
-    id: 'bb4',
-    name: 'Self-Care Sunday Bundle',
-    price: 22.00,
-    description: 'Includes a face mask, bath bomb, scented candle, and herbal tea. Perfect for a relaxing self-care day. Treat yourself or a loved one.',
-    summary: '🧖‍♀️ Relax, rejuvenate, pamper.',
-    imageUrls: ['https://placehold.co/600x800.png'],
-    category: 'best-bundles' as ProductCategorySlug,
-    dataAiHint: 'selfcare kit',
-    qty: Math.floor(Math.random() * 21),
-    get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
-  },
-  {
-    id: 'bb5',
-    name: 'Office Snack Stash',
-    price: 19.50,
-    description: 'A variety of healthy and indulgent snacks to keep you going through the workday. Includes nuts, dried fruit, dark chocolate, and crackers.',
-    summary: '💼 Healthy, indulgent, productive.',
-    imageUrls: ['https://placehold.co/600x800.png'],
-    category: 'best-bundles' as ProductCategorySlug,
-    dataAiHint: 'office snacks',
-    qty: Math.floor(Math.random() * 21),
+    qty: 12,
     get status() { return this.qty > 0 ? 'has-stock' : 'out-of-stock'; }
   }
 ];
