@@ -19,7 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Camera, FileImage, Loader2, PlusCircle, Trash2, UploadCloud } from 'lucide-react';
 import type { Product, ProductCategorySlug, ProductBadge } from '@/lib/types';
 import { db, storage } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore'; // Import setDoc
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const categories: { slug: ProductCategorySlug; name: string }[] = [
@@ -34,6 +34,7 @@ const categories: { slug: ProductCategorySlug; name: string }[] = [
 const badgeTypes: ProductBadge['type'][] = ['hot', 'limited', 'signature', 'new', 'custom'];
 
 const productFormSchema = z.object({
+  id: z.string().min(1, { message: 'Product ID cannot be empty.' }).regex(/^[a-zA-Z0-9_-]+$/, { message: 'Product ID can only contain letters, numbers, underscores, and hyphens.' }),
   name: z.string().min(3, { message: 'Product name must be at least 3 characters.' }),
   price: z.coerce.number().positive({ message: 'Price must be a positive number.' }),
   summary: z.string().optional(),
@@ -58,6 +59,7 @@ export default function AddProductPage() {
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
     defaultValues: {
+      id: '',
       name: '',
       price: 0,
       summary: '',
@@ -87,30 +89,25 @@ export default function AddProductPage() {
 
   const onSubmit: SubmitHandler<ProductFormValues> = async (data) => {
     setIsSubmitting(true);
-    try {
-      // 1. Create Firestore document to get an ID (initially without imageUrls)
-      const newProductRef = await addDoc(collection(db, 'products'), {
-        name: data.name,
-        price: data.price,
-        summary: data.summary || '',
-        description: data.description,
-        category: data.category,
-        badge: data.badgeType && data.badgeText ? { type: data.badgeType, text: data.badgeText } : null,
-        qty: data.qty,
-        status: data.qty > 0 ? 'has-stock' : 'out-of-stock',
-        dataAiHint: data.dataAiHint || '',
-        imageUrls: [], // Placeholder
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
+    if (!data.id) {
+        toast({
+            title: 'Error',
+            description: 'Product ID is required.',
+            variant: 'destructive',
+        });
+        setIsSubmitting(false);
+        return;
+    }
 
-      const productId = newProductRef.id;
+    try {
+      const productId = data.id;
       let uploadedImageUrls: string[] = [];
 
-      // 2. Upload images to Firebase Storage
+      // 1. Upload images to Firebase Storage
       if (imageFiles.length > 0) {
         for (let i = 0; i < imageFiles.length; i++) {
           const file = imageFiles[i];
+          // Ensure unique file names even if multiple images have same name by adding timestamp and index
           const storageRef = ref(storage, `products/${productId}/image_${i}_${Date.now()}_${file.name}`);
           await uploadBytes(storageRef, file);
           const downloadURL = await getDownloadURL(storageRef);
@@ -121,21 +118,33 @@ export default function AddProductPage() {
         uploadedImageUrls.push('https://placehold.co/600x400.png');
       }
       
-      // 3. Update Firestore document with image URLs
-      await updateDoc(doc(db, 'products', productId), {
+      // 2. Prepare product data for Firestore
+      const productData: Omit<Product, 'status' | 'createdAt' | 'updatedAt'> & { createdAt: any, updatedAt: any } = {
+        id: productId,
+        name: data.name,
+        price: data.price,
+        summary: data.summary || '',
+        description: data.description,
+        category: data.category,
+        badge: data.badgeType && data.badgeText ? { type: data.badgeType, text: data.badgeText } : undefined,
+        qty: data.qty,
+        dataAiHint: data.dataAiHint || '',
         imageUrls: uploadedImageUrls,
+        createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-      });
+      };
+      
+      // 3. Save product data to Firestore using setDoc with the custom ID
+      await setDoc(doc(db, 'products', productId), productData);
 
       toast({
         title: 'Product Added!',
-        description: `${data.name} has been successfully added.`,
+        description: `${data.name} (ID: ${productId}) has been successfully added.`,
       });
       form.reset();
       setImageFiles([]);
       setImagePreviews([]);
-      // Optionally redirect or stay on page
-      // router.push('/admin'); 
+      // router.push('/admin'); // Optionally redirect
     } catch (error) {
       console.error('Error adding product:', error);
       toast({
@@ -156,11 +165,26 @@ export default function AddProductPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-2xl">Add New Product</CardTitle>
-          <CardDescription>Fill in the details for the new product.</CardDescription>
+          <CardDescription>Fill in the details for the new product. Use a unique Product ID.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+              <FormField
+                control={form.control}
+                name="id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Product ID</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., unique-product-code" {...field} />
+                    </FormControl>
+                    <FormDescription>This ID must be unique and will be used as the document ID in Firestore.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="name"
@@ -280,7 +304,6 @@ export default function AddProductPage() {
                     </label>
                   )}
                 </div>
-                 {/* Placeholder for "Take Photo from Camera" */}
                 <Button type="button" variant="outline" disabled className="w-full mt-2">
                   <Camera className="mr-2 h-4 w-4" /> Take Photo from Camera (Coming Soon)
                 </Button>
@@ -294,7 +317,7 @@ export default function AddProductPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Badge Type (Optional)</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value || undefined} >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select badge type" />
@@ -333,11 +356,11 @@ export default function AddProductPage() {
                 name="dataAiHint"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>AI Image Hint (Optional)</FormLabel>
+                    <FormLabel>AI Image Hint (Optional, 1-2 words)</FormLabel>
                     <FormControl>
                       <Input placeholder="e.g., chips spicy or fruit basket" {...field} />
                     </FormControl>
-                     <FormDescription>Keywords for AI image generation/search.</FormDescription>
+                     <FormDescription>Keywords for AI image generation/search. Max 2 words.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
