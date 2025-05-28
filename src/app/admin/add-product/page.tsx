@@ -165,7 +165,7 @@ export default function AddProductPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-2xl">Add New Product</CardTitle>
-          <CardDescription>Fill in the details for the new product. Use a unique Product ID.</CardDescription>
+          <CardDescription>Fill in the details for the new product.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
