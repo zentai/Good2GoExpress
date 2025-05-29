@@ -726,20 +726,6 @@ export default function PackingPage() {
               {unitNumberGlobal && <p className="text-sm"><span className="font-medium">Unit/House No.:</span> {unitNumberGlobal}</p>}
             </div>
           </div>
-          <div className="flex items-center space-x-2 mt-4">
-            <Checkbox
-                id="skipPreview"
-                checked={skipPreviewNextTime}
-                onCheckedChange={(checked) => {
-                    const newSkipState = checked as boolean;
-                    setSkipPreviewNextTime(newSkipState);
-                    if (typeof window !== 'undefined') {
-                        localStorage.setItem(LOCALSTORAGE_SKIP_PREVIEW_KEY, newSkipState.toString());
-                    }
-                }}
-            />
-            <Label htmlFor="skipPreview" className="text-xs text-muted-foreground">Don&apos;t show this preview again</Label>
-          </div>
           <DialogFooter className="sm:justify-between gap-2 mt-4">
             <DialogClose asChild>
               <Button type="button" variant="outline" className="w-full sm:w-auto">
