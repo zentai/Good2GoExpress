@@ -14,12 +14,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Package, Home as HomeIcon, ShoppingBag, CheckCircle, MessageSquare, PlusCircle, MinusCircle, ArrowLeftCircle, Rocket, CalendarDays, Clock, ShoppingCart, Edit3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast'; // Keep for critical validation toasts
-import { format, addDays, isSameDay, addHours, setHours, setMinutes, setSeconds, setMilliseconds, isBefore, parseISO, startOfDay } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
+import { format, addDays, isSameDay, addHours, setHours, setMinutes, setSeconds, setMilliseconds, isBefore, startOfDay } from 'date-fns';
+import { db } from '@/lib/firebase';
+import { collection, addDoc, serverTimestamp, DocumentData } from 'firebase/firestore';
 
 const WHATSAPP_PHONE_NUMBER = '+60187693136';
 const LOCALSTORAGE_UNIT_NUMBER_KEY = 'good2go_unitNumber';
-// LOCALSTORAGE_SKIP_PREVIEW_KEY is removed
+const LOCALSTORAGE_SKIP_PREVIEW_KEY = 'good2go_skipPreview';
+const LOCALSTORAGE_UUID_KEY = 'good2go_userUuid'; // Added UUID key
 const PICKUP_LEAD_TIME_HOURS = 4;
 
 interface TrayItemDisplayProps {
@@ -44,7 +47,7 @@ function TrayItemDisplay({ item, onUpdateQuantity }: TrayItemDisplayProps) {
 
   return (
     <div className="py-4 border-b border-border last:border-b-0">
-      <div className="flex justify-between items-center mb-1">
+      <div className="flex justify-between items-center mb-2">
         <p className="font-medium text-foreground text-lg flex-grow flex items-center">
           <span className="mr-2 text-xl">{emoji}</span>
           {item.name}
@@ -66,17 +69,46 @@ function TrayItemDisplay({ item, onUpdateQuantity }: TrayItemDisplayProps) {
   );
 }
 
-async function submitOrderToFirebase(orderData: {
-  items: OrderItem[];
-  totalAmount: number;
+// Firestore Order Data Structure
+interface FirestoreOrderItem {
+  productId: string;
+  name: string;
+  price: number;
+  qty: number;
+  subtotal: number;
+}
+
+interface FirestoreOrderContact {
+  unitNo: string;
+}
+
+interface FirestoreOrderPayload {
+  uuid: string;
+  createdAt: any; // For serverTimestamp
   pickupDate: string;
   pickupTimeSlot: string;
-  unitNumber?: string;
-  timestamp: string;
-}) {
-  console.log("Simulating order submission to Firebase for packing:", orderData);
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  return { success: true, orderId: `mock_pack_list_${Date.now()}` };
+  items: FirestoreOrderItem[];
+  totalAmount: number;
+  totalItems: number;
+  contact: FirestoreOrderContact;
+  status: 'pending' | 'packed' | 'completed' | 'cancelled';
+  // Optional: Add sendViaWhatsApp flag if you want to track it
+  // sendViaWhatsApp?: boolean;
+}
+
+
+async function submitOrderToFirebase(orderPayload: FirestoreOrderPayload): Promise<string> {
+  try {
+    const docRef = await addDoc(collection(db, 'orders'), {
+      ...orderPayload,
+      createdAt: serverTimestamp(), // Ensure server timestamp is set here
+    });
+    console.log("Order submitted to Firebase with ID: ", docRef.id);
+    return docRef.id; // Return the ID of the newly created document
+  } catch (error) {
+    console.error("Error submitting order to Firebase: ", error);
+    throw new Error("Failed to submit packing list to backend."); // Re-throw to be caught by handleFinalSubmit
+  }
 }
 
 interface PackingPageContentProps {
@@ -106,7 +138,7 @@ function PackingPageContent({
   initialSelectedPickupTime,
 }: PackingPageContentProps) {
   const router = useRouter();
-  const { toast } = useToast(); // Kept for critical feedback, e.g. validation.
+  const { toast } = useToast();
   const [trayItems, setTrayItems] = useState<OrderItem[]>(initialTrayItems);
   const [totalAmount, setTotalAmount] = useState(0);
   const [totalItemCount, setTotalItemCount] = useState(0);
@@ -115,12 +147,12 @@ function PackingPageContent({
   const [selectedPickupTime, setSelectedPickupTime] = useState<string>(initialSelectedPickupTime);
   const [unitNumber, setUnitNumber] = useState(initialUnitNumber);
   const [sendViaWhatsApp, setSendViaWhatsApp] = useState(initialSendViaWhatsApp);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // Initial loading state for content
 
   const availableDates = useMemo(() => {
     const dates = [];
     const today = startOfDay(new Date());
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 3; i++) { // Show 3 days
       dates.push(addDays(today, i));
     }
     return dates;
@@ -148,28 +180,40 @@ function PackingPageContent({
       const newSlots = getAvailableTimeSlots(selectedDate);
       setAvailableSlotsForSelectedDate(newSlots);
 
-      if (newSlots.length > 0 && (!selectedPickupTime || !newSlots.includes(selectedPickupTime))) {
-        setSelectedPickupTime(newSlots[0]);
-      } else if (newSlots.length === 0 && selectedPickupTime) {
+      // Auto-select first available slot or clear selection if no slots
+      if (newSlots.length > 0) {
+        if (!selectedPickupTime || !newSlots.includes(selectedPickupTime)) {
+          setSelectedPickupTime(newSlots[0]);
+        }
+      } else {
         setSelectedPickupTime('');
-      } else if (newSlots.length > 0 && newSlots.includes(initialSelectedPickupTime) && !selectedPickupTime) {
-        setSelectedPickupTime(initialSelectedPickupTime);
       }
     } else {
       setAvailableSlotsForSelectedDate([]);
       setSelectedPickupTime('');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate, getAvailableTimeSlots, initialSelectedPickupTime]);
-
+  }, [selectedDate, getAvailableTimeSlots]); // Removed initialSelectedPickupTime from deps as it's an initial value
 
   useEffect(() => {
     setTrayItems(initialTrayItems);
     setUnitNumber(initialUnitNumber);
     setSendViaWhatsApp(initialSendViaWhatsApp);
     setSelectedDate(initialSelectedDate);
+    // If initialSelectedDate and initialSelectedPickupTime are provided and valid, set them
+    if (initialSelectedDate) {
+        const slots = getAvailableTimeSlots(initialSelectedDate);
+        if (slots.includes(initialSelectedPickupTime)) {
+            setSelectedPickupTime(initialSelectedPickupTime);
+        } else if (slots.length > 0) {
+            setSelectedPickupTime(slots[0]);
+        } else {
+            setSelectedPickupTime('');
+        }
+    }
     setIsLoading(false);
-  }, [initialTrayItems, initialUnitNumber, initialSendViaWhatsApp, initialSelectedDate]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTrayItems, initialUnitNumber, initialSendViaWhatsApp, initialSelectedDate, initialSelectedPickupTime]);
 
 
   useEffect(() => {
@@ -205,8 +249,6 @@ function PackingPageContent({
 
     if (trayItems.length === 0 && !isLoading) {
       // This toast might be acceptable as it's navigational feedback, not item action feedback.
-      // However, adhering strictly to "移除所有弹窗或 Toast 提示" in the context of item actions,
-      // this should be reviewed. For now, keeping it as it aids usability.
       toast({
         title: "Your List is Empty",
         description: "Your packing list is empty. Add some items first!",
@@ -224,7 +266,6 @@ function PackingPageContent({
       let updatedItems;
       if (newQuantity <= 0) {
         updatedItems = currentItems.filter(item => item.productId !== productId);
-        // Removed "Item Removed" toast as per request to remove item action toasts
       } else {
         updatedItems = currentItems.map(item =>
           item.productId === productId ? { ...item, quantity: newQuantity } : item
@@ -258,7 +299,7 @@ function PackingPageContent({
           <h3 className="text-xl font-semibold text-foreground mb-3 pb-2 border-b flex items-center gap-2">
             <ShoppingBag className="h-6 w-6 text-primary" /> Choose Your Stash
           </h3>
-          <div className="space-y-0">
+          <div className="space-y-0"> {/* No scroll container */}
             {trayItems.map(item => (
               <TrayItemDisplay key={item.productId} item={item} onUpdateQuantity={handleUpdateQuantity} />
             ))}
@@ -271,7 +312,7 @@ function PackingPageContent({
           <Label className="text-xl font-semibold text-foreground flex items-center gap-2 mb-3 pb-2 border-b">
             <CalendarDays className="h-6 w-6 text-primary" />Select Pickup Date
           </Label>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-3"> {/* Grid for 3 date buttons */}
             {availableDates.map(date => (
               <Button
                 key={date.toISOString()}
@@ -338,8 +379,13 @@ function PackingPageContent({
             className="h-12 text-base rounded-md border-input focus:border-primary focus:ring-primary"
           />
         </div>
+        
+        <Button variant="outline" onClick={() => router.push('/')} className="w-full text-md mt-6">
+            <ShoppingCart className="mr-2 h-5 w-5" /> Shop More
+        </Button>
 
-        <Separator />
+
+        <Separator className="mt-6 mb-4"/>
 
         <div className="flex items-center space-x-2 pt-3">
           <Checkbox
@@ -372,10 +418,11 @@ export default function PackingPage() {
   const [sendViaWhatsAppGlobal, setSendViaWhatsAppGlobal] = useState(true);
   const [isSubmittingGlobal, setIsSubmittingGlobal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
-  // skipPreviewNextTime state and related localStorage key are removed
+  const [skipPreviewNextTime, setSkipPreviewNextTime] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [availableSlotsForDateGlobal, setAvailableSlotsForDateGlobal] = useState<string[]>([]);
   const [isFooterVisible, setIsFooterVisible] = useState(true);
+  const [userUuid, setUserUuid] = useState<string>('');
 
 
   const router = useRouter();
@@ -384,6 +431,8 @@ export default function PackingPage() {
   useEffect(() => {
     let initialTray: OrderItem[] = [];
     let savedUnit = '';
+    let savedSkipPreview = false;
+    let existingUuid = '';
 
     if (typeof window !== 'undefined') {
       const trayData = localStorage.getItem('good2go_cart');
@@ -393,10 +442,19 @@ export default function PackingPage() {
         } catch { console.error("Failed to parse tray from localStorage"); initialTray = []; }
       }
       savedUnit = localStorage.getItem(LOCALSTORAGE_UNIT_NUMBER_KEY) || '';
+      savedSkipPreview = localStorage.getItem(LOCALSTORAGE_SKIP_PREVIEW_KEY) === 'true';
+      
+      existingUuid = localStorage.getItem(LOCALSTORAGE_UUID_KEY) || '';
+      if (!existingUuid) {
+        existingUuid = crypto.randomUUID();
+        localStorage.setItem(LOCALSTORAGE_UUID_KEY, existingUuid);
+      }
     }
-
+    
+    setUserUuid(existingUuid);
     setTrayItemsGlobal(initialTray);
     setUnitNumberGlobal(savedUnit);
+    setSkipPreviewNextTime(savedSkipPreview);
 
     const initialTotal = initialTray.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const initialItemCount = initialTray.reduce((sum, item) => sum + item.quantity, 0);
@@ -404,7 +462,6 @@ export default function PackingPage() {
     setTotalItemCountGlobal(initialItemCount);
 
     if (initialTray.length === 0 && (router as any).pathname === '/checkout') {
-      // Critical feedback toast, not item action toast.
       toast({
         title: "Your Packing List is Empty",
         description: "Let's add some items first!",
@@ -432,13 +489,15 @@ export default function PackingPage() {
         setTotalItemCountGlobal(newCount);
 
         if (updatedCart.length === 0 && (router as any).pathname === '/checkout') {
-          // Critical feedback toast
           toast({ title: "List Cleared", description: "Your packing list was cleared.", duration: 2000 });
           router.push('/');
         }
       }
       if (event.key === LOCALSTORAGE_UNIT_NUMBER_KEY || event.key === null) {
         setUnitNumberGlobal(localStorage.getItem(LOCALSTORAGE_UNIT_NUMBER_KEY) || '');
+      }
+      if (event.key === LOCALSTORAGE_SKIP_PREVIEW_KEY || event.key === null) {
+        setSkipPreviewNextTime(localStorage.getItem(LOCALSTORAGE_SKIP_PREVIEW_KEY) === 'true');
       }
     };
     window.addEventListener('storage', handleStorageChange);
@@ -468,31 +527,49 @@ export default function PackingPage() {
 
   const handleFinalSubmit = async () => {
     setShowPreviewModal(false);
-    setIsFooterVisible(true); // Ensure footer is visible after modal closes
+    setIsFooterVisible(true); 
     setIsSubmittingGlobal(true);
 
-    const orderDataForFirebase = {
-      items: trayItemsGlobal,
-      totalAmount: totalAmountGlobal,
+    if (!userUuid) {
+        toast({
+            title: "Error",
+            description: "User identifier is missing. Please reload.",
+            variant: "destructive",
+        });
+        setIsSubmittingGlobal(false);
+        return;
+    }
+    
+    const transformedItems: FirestoreOrderItem[] = trayItemsGlobal.map(item => ({
+      productId: item.productId,
+      name: item.name,
+      price: item.price,
+      qty: item.quantity,
+      subtotal: item.price * item.quantity,
+    }));
+
+    const orderDataForFirebase: FirestoreOrderPayload = {
+      uuid: userUuid,
+      createdAt: serverTimestamp(), // This will be replaced by serverTimestamp() in submitOrderToFirebase
       pickupDate: selectedDateGlobal ? format(selectedDateGlobal, 'yyyy-MM-dd') : 'N/A',
       pickupTimeSlot: selectedPickupTimeGlobal,
-      unitNumber: unitNumberGlobal.trim() || undefined,
-      timestamp: new Date().toISOString(),
+      items: transformedItems,
+      totalAmount: totalAmountGlobal,
+      totalItems: totalItemCountGlobal,
+      contact: { unitNo: unitNumberGlobal.trim() || '' },
+      status: 'pending',
     };
 
     try {
-      const firebaseResponse = await submitOrderToFirebase(orderDataForFirebase);
-      if (!firebaseResponse.success) {
-        throw new Error("Failed to submit packing list to backend.");
-      }
-
+      const firestoreOrderId = await submitOrderToFirebase(orderDataForFirebase);
+      
       const queryParams = new URLSearchParams({
         itemsCount: totalItemCountGlobal.toString(),
         totalAmount: totalAmountGlobal.toFixed(2),
         pickupDate: selectedDateGlobal ? format(selectedDateGlobal, 'yyyy-MM-dd') : 'N/A',
         pickupTime: selectedPickupTimeGlobal,
         unit: unitNumberGlobal.trim() || '',
-        orderId: firebaseResponse.orderId,
+        orderId: firestoreOrderId, // Use the ID from Firestore
       });
 
       localStorage.removeItem('good2go_cart');
@@ -509,12 +586,12 @@ export default function PackingPage() {
         packingDetails += `\n💰 Total: RM ${totalAmountGlobal.toFixed(2)}\n`;
         packingDetails += `📦 Pickup: ${selectedDateGlobal ? format(selectedDateGlobal, 'MMM d, yyyy') : ''} ${selectedPickupTimeGlobal}\n`;
         if (unitNumberGlobal.trim()) {
-          packingDetails += `🏠 Address: ${unitNumberGlobal.trim()}\n`;
+          packingDetails += `🏠 Unit/House No.: ${unitNumberGlobal.trim()}\n`;
         }
-        packingDetails += `Ref: ${firebaseResponse.orderId}\n\nReady for pickup!`;
+        packingDetails += `Ref: ${firestoreOrderId}\n\nReady for pickup!`;
 
         const whatsappUrl = `https://wa.me/${WHATSAPP_PHONE_NUMBER}?text=${encodeURIComponent(packingDetails)}`;
-
+        
         router.push(`/order-confirmation?${queryParams.toString()}`);
         window.open(whatsappUrl, '_blank');
 
@@ -553,12 +630,14 @@ export default function PackingPage() {
       return;
     }
 
-    // Always show preview modal, skipPreviewNextTime is removed.
-    setShowPreviewModal(true);
-    setIsFooterVisible(false); // Hide footer when modal is open
+    if (skipPreviewNextTime) {
+      handleFinalSubmit();
+    } else {
+      setShowPreviewModal(true);
+      setIsFooterVisible(false); 
+    }
   };
 
-  // Initial Loading UI
   if (isInitialLoading) {
     return (
       <div className="flex flex-col min-h-screen bg-background">
@@ -581,7 +660,7 @@ export default function PackingPage() {
     goButtonText = "List is Empty";
     isGoButtonDisabled = true;
   } else {
-    goButtonText = `RM ${totalAmountGlobal.toFixed(2)} (${totalItemCountGlobal} ${totalItemCountGlobal === 1 ? 'item' : 'items'})`;
+    goButtonText = `🚀 Go (RM ${totalAmountGlobal.toFixed(2)} | ${totalItemCountGlobal} ${totalItemCountGlobal === 1 ? 'item' : 'items'})`;
     if (!selectedDateGlobal || (availableSlotsForDateGlobal.length > 0 && !selectedPickupTimeGlobal) || (availableSlotsForDateGlobal.length === 0 && selectedDateGlobal) ) {
       isGoButtonDisabled = true;
     }
@@ -611,7 +690,7 @@ export default function PackingPage() {
 
       <Dialog open={showPreviewModal} onOpenChange={(isOpen) => {
         setShowPreviewModal(isOpen);
-        if (!isOpen) setIsFooterVisible(true); // Show footer when modal closes
+        if (!isOpen) setIsFooterVisible(true);
        }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -647,8 +726,21 @@ export default function PackingPage() {
               {unitNumberGlobal && <p className="text-sm"><span className="font-medium">Unit/House No.:</span> {unitNumberGlobal}</p>}
             </div>
           </div>
-          {/* "Don't show this preview again" checkbox is removed */}
-          <DialogFooter className="sm:justify-between gap-2 mt-4"> {/* Increased mt from 2 to 4 */}
+          <div className="flex items-center space-x-2 mt-4">
+            <Checkbox
+                id="skipPreview"
+                checked={skipPreviewNextTime}
+                onCheckedChange={(checked) => {
+                    const newSkipState = checked as boolean;
+                    setSkipPreviewNextTime(newSkipState);
+                    if (typeof window !== 'undefined') {
+                        localStorage.setItem(LOCALSTORAGE_SKIP_PREVIEW_KEY, newSkipState.toString());
+                    }
+                }}
+            />
+            <Label htmlFor="skipPreview" className="text-xs text-muted-foreground">Don&apos;t show this preview again</Label>
+          </div>
+          <DialogFooter className="sm:justify-between gap-2 mt-4">
             <DialogClose asChild>
               <Button type="button" variant="outline" className="w-full sm:w-auto">
                 <Edit3 className="mr-2 h-4 w-4" /> Edit Pack
@@ -688,7 +780,6 @@ export default function PackingPage() {
                 </>
               ) : (
                 <>
-                  <Rocket className="mr-1 h-5 w-5 group-hover:animate-pulse" />
                   {goButtonText}
                 </>
               )}
@@ -699,3 +790,4 @@ export default function PackingPage() {
     </div>
   );
 }
+
