@@ -17,12 +17,12 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { format, addDays, isSameDay, addHours, setHours, setMinutes, setSeconds, setMilliseconds, isBefore, startOfDay } from 'date-fns';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, DocumentData } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, DocumentData, runTransaction, doc, Timestamp } from 'firebase/firestore'; // Added runTransaction, doc
 
 const WHATSAPP_PHONE_NUMBER = '+60187693136';
 const LOCALSTORAGE_UNIT_NUMBER_KEY = 'good2go_unitNumber';
 const LOCALSTORAGE_SKIP_PREVIEW_KEY = 'good2go_skipPreview';
-const LOCALSTORAGE_UUID_KEY = 'good2go_userUuid'; // Added UUID key
+const LOCALSTORAGE_UUID_KEY = 'good2go_userUuid';
 const PICKUP_LEAD_TIME_HOURS = 4;
 
 interface TrayItemDisplayProps {
@@ -69,7 +69,6 @@ function TrayItemDisplay({ item, onUpdateQuantity }: TrayItemDisplayProps) {
   );
 }
 
-// Firestore Order Data Structure
 interface FirestoreOrderItem {
   productId: string;
   name: string;
@@ -82,9 +81,9 @@ interface FirestoreOrderContact {
   unitNo: string;
 }
 
-interface FirestoreOrderPayload {
+export interface FirestoreOrderPayload { // Exported for potential use elsewhere, though not strictly necessary for this file
   uuid: string;
-  createdAt: any; // For serverTimestamp
+  createdAt: any; // For serverTimestamp, will be set during transaction
   pickupDate: string;
   pickupTimeSlot: string;
   items: FirestoreOrderItem[];
@@ -92,24 +91,51 @@ interface FirestoreOrderPayload {
   totalItems: number;
   contact: FirestoreOrderContact;
   status: 'pending' | 'packed' | 'completed' | 'cancelled';
-  // Optional: Add sendViaWhatsApp flag if you want to track it
-  // sendViaWhatsApp?: boolean;
 }
 
-
-async function submitOrderToFirebase(orderPayload: FirestoreOrderPayload): Promise<string> {
+async function submitOrderToFirebase(orderPayload: Omit<FirestoreOrderPayload, 'createdAt' | 'id'>): Promise<string> {
   try {
-    const docRef = await addDoc(collection(db, 'orders'), {
-      ...orderPayload,
-      createdAt: serverTimestamp(), // Ensure server timestamp is set here
+    const orderId = await runTransaction(db, async (transaction) => {
+      const productRefsAndData = await Promise.all(
+        orderPayload.items.map(async (item) => {
+          const productRef = doc(db, 'products', item.productId);
+          const productDoc = await transaction.get(productRef);
+          if (!productDoc.exists()) {
+            throw new Error(`Product "${item.name}" (ID: ${item.productId}) not found.`);
+          }
+          const productData = productDoc.data() as { qty: number; name: string; [key: string]: any };
+          if (productData.qty < item.qty) {
+            throw new Error(`Not enough stock for "${item.name}". Requested: ${item.qty}, Available: ${productData.qty}.`);
+          }
+          return { productRef, productData, requestedQty: item.qty, itemName: item.name };
+        })
+      );
+
+      // If all stock checks passed, proceed to update product quantities and create order
+      for (const { productRef, productData, requestedQty } of productRefsAndData) {
+        const newQty = productData.qty - requestedQty;
+        const newStatus = newQty > 0 ? 'has-stock' : 'out-of-stock';
+        transaction.update(productRef, { qty: newQty, status: newStatus });
+      }
+
+      const newOrderRef = doc(collection(db, 'orders')); // Auto-generate ID for the new order
+      const completeOrderPayload: FirestoreOrderPayload = {
+        ...orderPayload,
+        createdAt: serverTimestamp(), // Set timestamp here
+        status: 'pending', // Ensure status is set
+      };
+      transaction.set(newOrderRef, completeOrderPayload);
+      return newOrderRef.id;
     });
-    console.log("Order submitted to Firebase with ID: ", docRef.id);
-    return docRef.id; // Return the ID of the newly created document
-  } catch (error) {
-    console.error("Error submitting order to Firebase: ", error);
-    throw new Error("Failed to submit packing list to backend."); // Re-throw to be caught by handleFinalSubmit
+    console.log("Order submitted to Firebase with ID: ", orderId);
+    return orderId;
+  } catch (error: any) {
+    console.error("Error submitting order to Firebase via transaction: ", error);
+    // Re-throw with a more specific message if possible, or the original error
+    throw new Error(error.message || "Failed to submit packing list due to a database issue.");
   }
 }
+
 
 interface PackingPageContentProps {
   onStateChangeForParent: (data: {
@@ -147,12 +173,12 @@ function PackingPageContent({
   const [selectedPickupTime, setSelectedPickupTime] = useState<string>(initialSelectedPickupTime);
   const [unitNumber, setUnitNumber] = useState(initialUnitNumber);
   const [sendViaWhatsApp, setSendViaWhatsApp] = useState(initialSendViaWhatsApp);
-  const [isLoading, setIsLoading] = useState(true); // Initial loading state for content
+  const [isLoading, setIsLoading] = useState(true);
 
   const availableDates = useMemo(() => {
     const dates = [];
     const today = startOfDay(new Date());
-    for (let i = 0; i < 3; i++) { // Show 3 days
+    for (let i = 0; i < 5; i++) {
       dates.push(addDays(today, i));
     }
     return dates;
@@ -180,7 +206,6 @@ function PackingPageContent({
       const newSlots = getAvailableTimeSlots(selectedDate);
       setAvailableSlotsForSelectedDate(newSlots);
 
-      // Auto-select first available slot or clear selection if no slots
       if (newSlots.length > 0) {
         if (!selectedPickupTime || !newSlots.includes(selectedPickupTime)) {
           setSelectedPickupTime(newSlots[0]);
@@ -192,15 +217,13 @@ function PackingPageContent({
       setAvailableSlotsForSelectedDate([]);
       setSelectedPickupTime('');
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate, getAvailableTimeSlots]); // Removed initialSelectedPickupTime from deps as it's an initial value
+  }, [selectedDate, selectedPickupTime, getAvailableTimeSlots]);
 
   useEffect(() => {
     setTrayItems(initialTrayItems);
     setUnitNumber(initialUnitNumber);
     setSendViaWhatsApp(initialSendViaWhatsApp);
     setSelectedDate(initialSelectedDate);
-    // If initialSelectedDate and initialSelectedPickupTime are provided and valid, set them
     if (initialSelectedDate) {
         const slots = getAvailableTimeSlots(initialSelectedDate);
         if (slots.includes(initialSelectedPickupTime)) {
@@ -212,8 +235,7 @@ function PackingPageContent({
         }
     }
     setIsLoading(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialTrayItems, initialUnitNumber, initialSendViaWhatsApp, initialSelectedDate, initialSelectedPickupTime]);
+  }, [initialTrayItems, initialUnitNumber, initialSendViaWhatsApp, initialSelectedDate, initialSelectedPickupTime, getAvailableTimeSlots]);
 
 
   useEffect(() => {
@@ -248,7 +270,6 @@ function PackingPageContent({
     });
 
     if (trayItems.length === 0 && !isLoading) {
-      // This toast might be acceptable as it's navigational feedback, not item action feedback.
       toast({
         title: "Your List is Empty",
         description: "Your packing list is empty. Add some items first!",
@@ -257,8 +278,7 @@ function PackingPageContent({
       });
       router.push('/');
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trayItems, selectedDate, selectedPickupTime, unitNumber, sendViaWhatsApp, isLoading, router, toast, updateTotals, availableSlotsForSelectedDate]);
+  }, [trayItems, selectedDate, selectedPickupTime, unitNumber, sendViaWhatsApp, isLoading, router, toast, updateTotals, onStateChangeForParent, availableSlotsForSelectedDate]);
 
 
   const handleUpdateQuantity = (productId: string, newQuantity: number) => {
@@ -299,7 +319,7 @@ function PackingPageContent({
           <h3 className="text-xl font-semibold text-foreground mb-3 pb-2 border-b flex items-center gap-2">
             <ShoppingBag className="h-6 w-6 text-primary" /> Choose Your Stash
           </h3>
-          <div className="space-y-0"> {/* No scroll container */}
+          <div className="space-y-0">
             {trayItems.map(item => (
               <TrayItemDisplay key={item.productId} item={item} onUpdateQuantity={handleUpdateQuantity} />
             ))}
@@ -312,7 +332,7 @@ function PackingPageContent({
           <Label className="text-xl font-semibold text-foreground flex items-center gap-2 mb-3 pb-2 border-b">
             <CalendarDays className="h-6 w-6 text-primary" />Select Pickup Date
           </Label>
-          <div className="grid grid-cols-3 gap-3"> {/* Grid for 3 date buttons */}
+          <div className="grid grid-cols-3 gap-3">
             {availableDates.map(date => (
               <Button
                 key={date.toISOString()}
@@ -384,7 +404,6 @@ function PackingPageContent({
             <ShoppingCart className="mr-2 h-5 w-5" /> Shop More
         </Button>
 
-
         <Separator className="mt-6 mb-4"/>
 
         <div className="flex items-center space-x-2 pt-3">
@@ -407,7 +426,6 @@ function PackingPageContent({
   );
 }
 
-
 export default function PackingPage() {
   const [trayItemsGlobal, setTrayItemsGlobal] = useState<OrderItem[]>([]);
   const [totalAmountGlobal, setTotalAmountGlobal] = useState(0);
@@ -418,12 +436,11 @@ export default function PackingPage() {
   const [sendViaWhatsAppGlobal, setSendViaWhatsAppGlobal] = useState(true);
   const [isSubmittingGlobal, setIsSubmittingGlobal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
-  const [skipPreviewNextTime, setSkipPreviewNextTime] = useState(false);
+  // Removed skipPreviewNextTime state and related LOCALSTORAGE_SKIP_PREVIEW_KEY
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [availableSlotsForDateGlobal, setAvailableSlotsForDateGlobal] = useState<string[]>([]);
   const [isFooterVisible, setIsFooterVisible] = useState(true);
   const [userUuid, setUserUuid] = useState<string>('');
-
 
   const router = useRouter();
   const { toast } = useToast();
@@ -431,7 +448,6 @@ export default function PackingPage() {
   useEffect(() => {
     let initialTray: OrderItem[] = [];
     let savedUnit = '';
-    let savedSkipPreview = false;
     let existingUuid = '';
 
     if (typeof window !== 'undefined') {
@@ -442,7 +458,6 @@ export default function PackingPage() {
         } catch { console.error("Failed to parse tray from localStorage"); initialTray = []; }
       }
       savedUnit = localStorage.getItem(LOCALSTORAGE_UNIT_NUMBER_KEY) || '';
-      savedSkipPreview = localStorage.getItem(LOCALSTORAGE_SKIP_PREVIEW_KEY) === 'true';
       
       existingUuid = localStorage.getItem(LOCALSTORAGE_UUID_KEY) || '';
       if (!existingUuid) {
@@ -454,7 +469,6 @@ export default function PackingPage() {
     setUserUuid(existingUuid);
     setTrayItemsGlobal(initialTray);
     setUnitNumberGlobal(savedUnit);
-    setSkipPreviewNextTime(savedSkipPreview);
 
     const initialTotal = initialTray.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const initialItemCount = initialTray.reduce((sum, item) => sum + item.quantity, 0);
@@ -489,15 +503,11 @@ export default function PackingPage() {
         setTotalItemCountGlobal(newCount);
 
         if (updatedCart.length === 0 && (router as any).pathname === '/checkout') {
-          toast({ title: "List Cleared", description: "Your packing list was cleared.", duration: 2000 });
           router.push('/');
         }
       }
       if (event.key === LOCALSTORAGE_UNIT_NUMBER_KEY || event.key === null) {
         setUnitNumberGlobal(localStorage.getItem(LOCALSTORAGE_UNIT_NUMBER_KEY) || '');
-      }
-      if (event.key === LOCALSTORAGE_SKIP_PREVIEW_KEY || event.key === null) {
-        setSkipPreviewNextTime(localStorage.getItem(LOCALSTORAGE_SKIP_PREVIEW_KEY) === 'true');
       }
     };
     window.addEventListener('storage', handleStorageChange);
@@ -548,19 +558,20 @@ export default function PackingPage() {
       subtotal: item.price * item.quantity,
     }));
 
-    const orderDataForFirebase: FirestoreOrderPayload = {
+    // Prepare payload for Firestore (without createdAt and status as they are set in submitOrderToFirebase)
+    const orderDataForFirebase: Omit<FirestoreOrderPayload, 'createdAt' | 'status'> = {
       uuid: userUuid,
-      createdAt: serverTimestamp(), // This will be replaced by serverTimestamp() in submitOrderToFirebase
       pickupDate: selectedDateGlobal ? format(selectedDateGlobal, 'yyyy-MM-dd') : 'N/A',
       pickupTimeSlot: selectedPickupTimeGlobal,
       items: transformedItems,
       totalAmount: totalAmountGlobal,
       totalItems: totalItemCountGlobal,
       contact: { unitNo: unitNumberGlobal.trim() || '' },
-      status: 'pending',
+      // status and createdAt will be set inside submitOrderToFirebase
     };
 
     try {
+      // submitOrderToFirebase now handles the transaction
       const firestoreOrderId = await submitOrderToFirebase(orderDataForFirebase);
       
       const queryParams = new URLSearchParams({
@@ -569,10 +580,10 @@ export default function PackingPage() {
         pickupDate: selectedDateGlobal ? format(selectedDateGlobal, 'yyyy-MM-dd') : 'N/A',
         pickupTime: selectedPickupTimeGlobal,
         unit: unitNumberGlobal.trim() || '',
-        orderId: firestoreOrderId, // Use the ID from Firestore
+        orderId: firestoreOrderId,
       });
 
-      localStorage.removeItem('good2go_cart');
+      localStorage.removeItem('good2go_cart'); // Clear cart after successful submission
 
       if (sendViaWhatsAppGlobal) {
         let packingDetails = "Hi Good2Go Express! I've packed my stash:\n\n";
@@ -592,6 +603,7 @@ export default function PackingPage() {
 
         const whatsappUrl = `https://wa.me/${WHATSAPP_PHONE_NUMBER}?text=${encodeURIComponent(packingDetails)}`;
         
+        // Navigate to order confirmation first, then open WhatsApp
         router.push(`/order-confirmation?${queryParams.toString()}`);
         window.open(whatsappUrl, '_blank');
 
@@ -599,11 +611,11 @@ export default function PackingPage() {
         router.push(`/order-confirmation?${queryParams.toString()}`);
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Packing list submission error:", error);
       toast({
         title: "Submission Failed",
-        description: "There was an issue submitting your list. Please try again.",
+        description: error.message || "There was an issue submitting your list. Please try again.",
         variant: "destructive",
         duration: 5000,
       });
@@ -630,12 +642,9 @@ export default function PackingPage() {
       return;
     }
 
-    if (skipPreviewNextTime) {
-      handleFinalSubmit();
-    } else {
-      setShowPreviewModal(true);
-      setIsFooterVisible(false); 
-    }
+    // Always show preview modal now
+    setShowPreviewModal(true);
+    setIsFooterVisible(false); 
   };
 
   if (isInitialLoading) {
@@ -665,7 +674,6 @@ export default function PackingPage() {
       isGoButtonDisabled = true;
     }
   }
-
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -726,6 +734,7 @@ export default function PackingPage() {
               {unitNumberGlobal && <p className="text-sm"><span className="font-medium">Unit/House No.:</span> {unitNumberGlobal}</p>}
             </div>
           </div>
+          {/* Removed "Don't show this again" checkbox */}
           <DialogFooter className="sm:justify-between gap-2 mt-4">
             <DialogClose asChild>
               <Button type="button" variant="outline" className="w-full sm:w-auto">
@@ -777,3 +786,4 @@ export default function PackingPage() {
   );
 }
 
+    
