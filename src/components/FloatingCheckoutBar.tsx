@@ -42,7 +42,7 @@ export default function FloatingCheckoutBar({ trayItems, onClearTray }: Floating
               </p>
             </>
           ) : (
-            <p className="text-muted-foreground italic">Your list is empty. Let's pick some items!</p>
+            <p className="text-muted-foreground italic">Let's pick some items!</p>
           )}
         </div>
         <div className="flex items-stretch gap-2 flex-grow justify-end"> {/* Wrapper for buttons, takes remaining space */}
