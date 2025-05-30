@@ -178,7 +178,7 @@ function PackingPageContent({
   const availableDates = useMemo(() => {
     const dates = [];
     const today = startOfDay(new Date());
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 3; i++) {
       dates.push(addDays(today, i));
     }
     return dates;
