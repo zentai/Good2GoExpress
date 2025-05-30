@@ -3,9 +3,9 @@
 
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import type { Product, OrderItem } from '@/lib/types';
+import type { Product } from '@/lib/types'; // Removed OrderItem as it's not used here
 import { Button } from '@/components/ui/button';
-import { Heart } from 'lucide-react';
+import { Heart, ImageOff } from 'lucide-react'; // Added ImageOff
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -23,21 +23,30 @@ const ProductCard = ({ product, onToggleItemInList, isInList }: ProductCardProps
     setClientMounted(true);
   }, []);
 
+  const isOutOfStock = product.status === "out-of-stock";
+
   const handleCardClick = (e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest('button[aria-label*="list"]')) {
+    // Prevent navigation if clicking on the toggle button or if out of stock and card click is not desired
+    if ((e.target as HTMLElement).closest('button[aria-label*="list"]') || isOutOfStock) {
+        if (isOutOfStock && !(e.target as HTMLElement).closest('button[aria-label*="list"]')) {
+            // If out of stock and clicked anywhere else on card, maybe do nothing or show a quick message
+            // For now, we'll allow navigation to swipe view even if out of stock to see details
+            router.push(`/swipe-view?productId=${product.id}`);
+            return;
+        }
       return;
     }
-    // Navigate to swipe view starting with this product
     router.push(`/swipe-view?productId=${product.id}`);
   };
 
   const handleToggleListClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    if (isOutOfStock) return; // Prevent action if out of stock
     onToggleItemInList(product);
   };
 
-  if (!clientMounted) {
+  if (!clientMounted && !product) { // Added !product check for initial render safety
     // Skeleton Loader
     return (
       <div
@@ -52,19 +61,38 @@ const ProductCard = ({ product, onToggleItemInList, isInList }: ProductCardProps
       </div>
     );
   }
+  
+  // Fallback for primaryImageUrl
+  const primaryImageUrl = product.imageUrls && product.imageUrls.length > 0 && product.imageUrls[0]
+    ? product.imageUrls[0]
+    : 'https://placehold.co/600x400.png';
+  
+  const isValidHttpUrl = (string: string) => {
+    try {
+      const url = new URL(string);
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch (_) {
+      return false;
+    }
+  };
+  const displayImageUrl = isValidHttpUrl(primaryImageUrl) ? primaryImageUrl : 'https://placehold.co/600x400.png';
+
 
   return (
     <div
-      className="group rounded-lg overflow-hidden shadow-md hover:shadow-xl active:shadow-lg active:bg-secondary/30 transition-all duration-300 bg-card flex flex-col cursor-pointer"
+      className={cn(
+        "group rounded-lg overflow-hidden shadow-md hover:shadow-xl active:shadow-lg active:bg-secondary/30 transition-all duration-300 bg-card flex flex-col",
+        isOutOfStock ? "opacity-70 cursor-not-allowed" : "cursor-pointer"
+      )}
       onClick={handleCardClick}
       role="button"
-      tabIndex={0}
-      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleCardClick(e as any)}
-      aria-label={`View details for ${product.name}`}
+      tabIndex={isOutOfStock ? -1 : 0}
+      onKeyDown={(e) => !isOutOfStock && (e.key === 'Enter' || e.key === ' ') && handleCardClick(e as any)}
+      aria-label={`View details for ${product.name}${isOutOfStock ? ' (Out of Stock)' : ''}`}
       style={{ height: '244px' }}
     >
       <div className="relative aspect-square w-full overflow-hidden bg-muted h-44">
-        {product.badge && (
+        {product.badge && !isOutOfStock && ( // Only show product badge if not out of stock, or style differently
           <div
             className={cn(
               "absolute top-2 left-2 z-20 px-2 py-0.5 rounded-full text-xs font-semibold shadow-md",
@@ -79,28 +107,46 @@ const ProductCard = ({ product, onToggleItemInList, isInList }: ProductCardProps
           </div>
         )}
 
+        {isOutOfStock && (
+          <div className="absolute top-2 left-2 z-30 bg-red-100 text-red-700 border border-red-300 text-xs font-semibold px-2 py-1 rounded-md shadow-md">
+            Out of Stock
+          </div>
+        )}
+
         <Button
           variant="default"
           size="icon"
           className={cn(
-            "absolute bottom-3 right-3 z-20 rounded-full h-10 w-10 shadow-lg hover:scale-110 active:scale-95 transition-all duration-200",
-            isInList ? "bg-red-500 hover:bg-red-600 text-white" : "bg-accent hover:bg-accent/90 text-accent-foreground"
+            "absolute bottom-3 right-3 z-20 rounded-full h-10 w-10 shadow-lg transition-all duration-200",
+            isInList && !isOutOfStock ? "bg-red-500 hover:bg-red-600 text-white" : "bg-accent hover:bg-accent/90 text-accent-foreground",
+            isOutOfStock ? "bg-muted text-muted-foreground cursor-not-allowed hover:bg-muted" : "hover:scale-110 active:scale-95"
           )}
           onClick={handleToggleListClick}
-          aria-label={isInList ? `Remove ${product.name} from your list` : `Add ${product.name} to your list`}
+          aria-label={
+            isOutOfStock ? `${product.name} is out of stock` : 
+            isInList ? `Remove ${product.name} from your list` : 
+            `Add ${product.name} to your list`
+          }
+          disabled={isOutOfStock}
         >
-          <Heart className={cn("h-5 w-5", isInList ? "fill-white" : "fill-transparent")} />
+          <Heart className={cn("h-5 w-5", isInList && !isOutOfStock ? "fill-white" : "fill-transparent", isOutOfStock ? "text-muted-foreground" : "")} />
         </Button>
-
-        <Image
-          src={product.imageUrls[0]} // Use the first image for the card
-          alt={product.name}
-          fill
-          sizes="(max-width: 374px) 100vw, (max-width: 599px) 50vw, 33vw"
-          className="object-cover group-hover:scale-105 transition-transform duration-300 ease-in-out"
-          data-ai-hint={product.dataAiHint || product.name.split(" ").slice(0, 2).join(" ")}
-          priority={product.id === 'sa1' || product.id === 'tq1'} // Example priority products
-        />
+        
+        {displayImageUrl === 'https://placehold.co/600x400.png' || !isValidHttpUrl(displayImageUrl) ? (
+            <div className="flex items-center justify-center h-full w-full bg-muted text-muted-foreground">
+                <ImageOff className="h-16 w-16" />
+            </div>
+        ) : (
+            <Image
+                src={displayImageUrl}
+                alt={product.name}
+                fill
+                sizes="(max-width: 374px) 100vw, (max-width: 599px) 50vw, 33vw"
+                className="object-cover group-hover:scale-105 transition-transform duration-300 ease-in-out"
+                data-ai-hint={product.dataAiHint || product.name.split(" ").slice(0, 2).join(" ")}
+                priority={product.id === 'sa1' || product.id === 'tq1'} 
+            />
+        )}
       </div>
 
       <div className="p-3 flex-grow flex flex-col justify-center">
