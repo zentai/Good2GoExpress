@@ -9,9 +9,12 @@ import { loadProductsFromFirestore } from '@/data/products';
 import type { Product, OrderItem } from '@/lib/types';
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
-import { X, Plus, ChevronLeft, ChevronRight as ChevronRightIcon, ImageOff } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { X, Plus, ChevronLeft, ChevronRight as ChevronRightIcon, ImageOff, ShoppingBag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+
+// export const revalidate = 0; // Removed: 'revalidate' is a server-side config
 
 const getProductIndexById = (id: string, products: Product[]): number => {
   return products.findIndex(p => p.id === id);
@@ -123,7 +126,7 @@ function SwipeViewContent() {
   }, [trayItems]);
 
   const handleAddToPack = useCallback(() => {
-    if (!currentProduct || isItemInTray(currentProduct.id)) return;
+    if (!currentProduct || currentProduct.status === 'out-of-stock' || isItemInTray(currentProduct.id)) return;
     setActionFeedback('added');
     setTrayItems(prevItems => {
       const newItem: OrderItem = {
@@ -133,14 +136,14 @@ function SwipeViewContent() {
         quantity: 1,
       };
       const existing = prevItems.find(item => item.productId === currentProduct.id);
-      if (existing) return prevItems;
+      if (existing) return prevItems; // Should not happen if isItemInTray is checked before call
       return [...prevItems, newItem];
     });
     setTimeout(() => {
       advanceToNextProduct();
       setActionFeedback(null);
     }, 300);
-  }, [currentProduct, advanceToNextProduct, isItemInTray, trayItems]);
+  }, [currentProduct, advanceToNextProduct, isItemInTray]);
 
   const handleSkip = useCallback(() => {
     if (!currentProduct) return;
@@ -166,7 +169,9 @@ function SwipeViewContent() {
     },
     onSwipedRight: (eventData) => {
       if (isDescriptionExpanded && eventData.event.target instanceof HTMLElement && eventData.event.target.closest('.scrollable-description')) return;
-      handleAddToPack();
+      if (currentProduct && currentProduct.status !== 'out-of-stock') {
+        handleAddToPack();
+      }
     },
     onSwipedUp: () => {
       if (isDescriptionExpanded) return;
@@ -195,7 +200,7 @@ function SwipeViewContent() {
     }
   };
 
-  if (isLoading && !currentProduct) { // Show full page skeleton only if no product is loaded yet
+  if (isLoading && !currentProduct) {
     return (
       <div className="flex flex-col h-screen bg-background overflow-hidden antialiased">
         <div className="fixed top-0 left-0 right-0 z-50 flex justify-center py-2 bg-transparent">
@@ -225,7 +230,7 @@ function SwipeViewContent() {
     );
   }
   
-  if (!currentProduct && !isLoading) { // Handle case where products might be empty after loading
+  if (!currentProduct && !isLoading) {
     return (
       <div className="flex flex-col h-screen items-center justify-center bg-background">
          <Header />
@@ -243,6 +248,22 @@ function SwipeViewContent() {
   }
 
   const hasMultipleImages = currentProduct && currentProduct.imageUrls && currentProduct.imageUrls.length > 1;
+  const isOutOfStock = currentProduct?.status === 'out-of-stock';
+  
+  const isValidHttpUrl = (string: string) => {
+    try {
+      const url = new URL(string);
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch (_) {
+      return false;
+    }
+  };
+  
+  const primaryImageUrl = currentProduct?.imageUrls && currentProduct.imageUrls.length > currentImageIndex && currentProduct.imageUrls[currentImageIndex]
+    ? currentProduct.imageUrls[currentImageIndex]
+    : 'https://placehold.co/600x400.png';
+  const displayImageUrl = isValidHttpUrl(primaryImageUrl) ? primaryImageUrl : 'https://placehold.co/600x400.png';
+
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden antialiased">
@@ -270,22 +291,22 @@ function SwipeViewContent() {
               className="relative w-full aspect-[3/4] max-h-[65vh] bg-muted rounded-xl shadow-2xl overflow-hidden group"
               onClick={isDescriptionExpanded ? toggleDescription : undefined}
             >
-              {currentProduct.imageUrls && currentProduct.imageUrls.length > 0 ? (
+              {displayImageUrl === 'https://placehold.co/600x400.png' || !isValidHttpUrl(displayImageUrl) ? (
+                <div className="flex items-center justify-center h-full bg-muted text-muted-foreground">
+                  <ImageOff className="h-16 w-16" />
+                </div>
+              ) : (
                 <Image
-                  src={currentProduct.imageUrls[currentImageIndex]}
+                  src={displayImageUrl}
                   alt={currentProduct.name}
                   fill
                   priority
                   className="object-cover pointer-events-none" 
                   data-ai-hint={currentProduct.dataAiHint || "product image"}
                 />
-              ) : (
-                <div className="flex items-center justify-center h-full bg-muted text-muted-foreground">
-                  <ImageOff className="h-16 w-16" />
-                </div>
               )}
 
-              {hasMultipleImages && (
+              {hasMultipleImages && !isOutOfStock && (
                 <>
                   <div 
                     className="absolute left-0 top-0 h-full w-1/2 z-10 cursor-pointer flex items-center"
@@ -324,7 +345,7 @@ function SwipeViewContent() {
                 </>
               )}
 
-              {currentProduct.badge && (
+              {currentProduct.badge && !isOutOfStock && (
                 <div
                   className={cn(
                     "absolute top-3 left-3 z-10 px-3 py-1 rounded-full text-xs font-semibold shadow-lg",
@@ -338,6 +359,13 @@ function SwipeViewContent() {
                   {currentProduct.badge.text}
                 </div>
               )}
+              {isOutOfStock && (
+                 <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                    <Badge variant="destructive" className="text-base px-3 py-1.5 bg-red-100 text-red-700 border border-red-300 shadow-md">
+                        Out of Stock
+                    </Badge>
+                </div>
+              )}
             </div>
 
             <div
@@ -347,7 +375,9 @@ function SwipeViewContent() {
               <div className={cn("p-4 bg-card rounded-lg shadow-lg")}>
                 <div className="flex justify-between items-start">
                   <h2 className="text-lg font-bold text-foreground mr-2">{currentProduct.name}</h2>
-                  <p className="text-lg font-bold text-primary whitespace-nowrap">RM {currentProduct.price.toFixed(2)}</p>
+                  <p className={cn("text-lg font-bold whitespace-nowrap", isOutOfStock ? "text-muted-foreground" : "text-primary")}>
+                    RM {currentProduct.price.toFixed(2)}
+                  </p>
                 </div>
                 
                 <div className="mt-2 text-sm text-muted-foreground">
@@ -388,13 +418,26 @@ function SwipeViewContent() {
             size="lg"
             className={cn(
               "flex-1 h-14 rounded-full shadow-lg text-base font-medium text-accent-foreground active:scale-95",
-              currentProduct && isItemInTray(currentProduct.id) ? "bg-green-600 hover:bg-green-700" : "bg-accent hover:bg-accent/90"
+              isOutOfStock 
+                ? "bg-muted text-muted-foreground cursor-not-allowed" 
+                : (currentProduct && isItemInTray(currentProduct.id) 
+                  ? "bg-green-600 hover:bg-green-700" 
+                  : "bg-accent hover:bg-accent/90")
             )}
-            onClick={(e) => { e.stopPropagation(); handleAddToPack(); }}
-            disabled={!currentProduct || (currentProduct && isItemInTray(currentProduct.id)) || actionFeedback !== null}
-            aria-label={currentProduct && isItemInTray(currentProduct.id) ? `${currentProduct.name} is in pack` : currentProduct ? `Add ${currentProduct.name} to pack` : 'Add to pack'}
+            onClick={(e) => { e.stopPropagation(); if (!isOutOfStock) handleAddToPack(); }}
+            disabled={!currentProduct || isOutOfStock || (currentProduct && isItemInTray(currentProduct.id)) || actionFeedback !== null}
+            aria-label={
+                isOutOfStock ? `${currentProduct?.name} is out of stock`
+                : currentProduct && isItemInTray(currentProduct.id) ? `${currentProduct.name} is in pack` 
+                : currentProduct ? `Add ${currentProduct.name} to pack` 
+                : 'Add to pack'
+            }
           >
-            {currentProduct && isItemInTray(currentProduct.id) ? (
+            {isOutOfStock ? (
+              <>
+                <ShoppingBag className="mr-1.5 h-5 w-5" /> Out of Stock
+              </>
+            ) : currentProduct && isItemInTray(currentProduct.id) ? (
               <>
                 <Plus className="mr-1.5 h-5 w-5" /> In Pack
               </>

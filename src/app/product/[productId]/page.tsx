@@ -4,13 +4,15 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { loadProductByIdFromFirestore } from '@/data/products'; // Updated import
+import { loadProductByIdFromFirestore } from '@/data/products';
 import type { Product, OrderItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Heart, PlusCircle, CheckCircle, ShoppingBag, ImageOff } from 'lucide-react';
+import { ArrowLeft, Heart, PlusCircle, CheckCircle, ShoppingBag, ImageOff, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Skeleton } from '@/components/ui/skeleton'; // For loading state
+import { Skeleton } from '@/components/ui/skeleton';
+
+// export const revalidate = 0; // Removed: 'revalidate' is a server-side config
 
 export default function ProductDetailPage() {
   const router = useRouter();
@@ -61,8 +63,6 @@ export default function ProductDetailPage() {
   }, [productId]);
 
   useEffect(() => {
-    // Save trayItems to localStorage whenever it changes, but only after initial load
-    // and if the trayItems array itself is not the one causing the effect (to avoid loops if not careful)
     if (!isLoading && (trayItems.length > 0 || localStorage.getItem('good2go_cart') !== JSON.stringify(trayItems))) {
          if (localStorage.getItem('good2go_cart') !== JSON.stringify(trayItems)) {
             localStorage.setItem('good2go_cart', JSON.stringify(trayItems));
@@ -77,7 +77,7 @@ export default function ProductDetailPage() {
   );
 
   const handleToggleTrayItem = useCallback(() => {
-    if (!product) return;
+    if (!product || product.status === 'out-of-stock') return;
 
     setTrayItems((prevItems) => {
       const existingItem = prevItems.find(
@@ -105,7 +105,7 @@ export default function ProductDetailPage() {
 
 
   const handleBottomBarAction = () => {
-    if (!product) return;
+    if (!product || product.status === 'out-of-stock') return;
     if (isItemInTray(product.id)) {
       router.push('/checkout');
     } else {
@@ -199,7 +199,21 @@ export default function ProductDetailPage() {
     );
   }
 
+  const isOutOfStock = product.status === 'out-of-stock';
   const currentItemInTray = isItemInTray(product.id);
+  
+  const isValidHttpUrl = (string: string) => {
+    try {
+      const url = new URL(string);
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch (_) {
+      return false;
+    }
+  };
+
+  const primaryImageUrl = product.imageUrls && product.imageUrls.length > 0 && product.imageUrls[0] ? product.imageUrls[0] : 'https://placehold.co/600x400.png';
+  const displayImageUrl = isValidHttpUrl(primaryImageUrl) ? primaryImageUrl : 'https://placehold.co/600x400.png';
+
 
   return (
     <div className="flex flex-col min-h-screen bg-background pb-24">
@@ -211,26 +225,39 @@ export default function ProductDetailPage() {
           <h1 className="text-lg font-semibold text-foreground truncate flex-1 text-center px-2">
             {product.name}
           </h1>
-          <Button variant="ghost" size="icon" onClick={handleToggleTrayItem} aria-label={currentItemInTray ? "Remove from list" : "Add to list"}>
-            <Heart className={cn("h-6 w-6", currentItemInTray ? "fill-red-500 text-red-500" : "text-muted-foreground")} />
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleToggleTrayItem} 
+            aria-label={currentItemInTray ? "Remove from list" : "Add to list"}
+            disabled={isOutOfStock}
+          >
+            <Heart className={cn("h-6 w-6", currentItemInTray && !isOutOfStock ? "fill-red-500 text-red-500" : "text-muted-foreground", isOutOfStock && "text-muted-foreground/50")} />
           </Button>
         </div>
       </div>
 
       <main className="flex-grow container mx-auto px-0 sm:px-4">
         <div className="relative w-full aspect-[1/1] sm:aspect-square md:aspect-[3/2] max-h-[60vh] bg-muted overflow-hidden">
-          {product.imageUrls && product.imageUrls.length > 0 ? (
+          {displayImageUrl === 'https://placehold.co/600x400.png' || !isValidHttpUrl(displayImageUrl) ? (
+            <div className="flex items-center justify-center h-full bg-muted text-muted-foreground">
+              <ImageOff className="h-16 w-16" />
+            </div>
+          ) : (
             <Image
-              src={product.imageUrls[0]}
+              src={displayImageUrl}
               alt={product.name}
               fill
               priority
               className="object-cover"
               data-ai-hint={product.dataAiHint || "product image"}
             />
-          ) : (
-            <div className="flex items-center justify-center h-full bg-muted text-muted-foreground">
-              <ImageOff className="h-16 w-16" />
+          )}
+           {isOutOfStock && (
+            <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+              <Badge variant="destructive" className="text-lg px-4 py-2 bg-red-100 text-red-700 border border-red-300 shadow-md">
+                Out of Stock
+              </Badge>
             </div>
           )}
         </div>
@@ -238,7 +265,7 @@ export default function ProductDetailPage() {
         <div className="p-4 space-y-3 border-b">
           <div className="flex justify-between items-start">
             <h2 className="text-2xl font-bold text-foreground">{product.name}</h2>
-            {product.badge && (
+            {product.badge && !isOutOfStock && (
               <Badge
                 variant={
                   product.badge.type === 'hot' ? 'destructive' :
@@ -258,7 +285,14 @@ export default function ProductDetailPage() {
               </Badge>
             )}
           </div>
-          <p className="text-2xl font-bold text-primary">RM {product.price.toFixed(2)}</p>
+          <p className={cn("text-2xl font-bold", isOutOfStock ? "text-muted-foreground" : "text-primary")}>
+            RM {product.price.toFixed(2)}
+          </p>
+          {isOutOfStock && (
+            <p className="text-red-600 font-semibold text-lg bg-red-100 border border-red-300 px-3 py-1.5 rounded-md flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5"/> Currently Out of Stock
+            </p>
+          )}
         </div>
 
         <div className="p-4 space-y-2">
@@ -279,13 +313,19 @@ export default function ProductDetailPage() {
             size="lg"
             className={cn(
               "w-full h-14 text-lg font-semibold rounded-xl shadow-md flex items-center justify-center gap-2 transition-all duration-150 ease-in-out active:scale-95",
-              currentItemInTray
-                ? "bg-green-600 hover:bg-green-700 text-white"
-                : "bg-accent hover:bg-accent/90 text-accent-foreground"
+              isOutOfStock
+                ? "bg-muted text-muted-foreground cursor-not-allowed"
+                : currentItemInTray
+                  ? "bg-green-600 hover:bg-green-700 text-white"
+                  : "bg-accent hover:bg-accent/90 text-accent-foreground"
             )}
-            disabled={!product} // Disable if product is null
+            disabled={!product || isOutOfStock}
           >
-            {currentItemInTray ? (
+            {isOutOfStock ? (
+                <>
+                    <ShoppingBag className="mr-2 h-6 w-6"/> Out of Stock
+                </>
+            ) : currentItemInTray ? (
               <>
                 <CheckCircle className="mr-2 h-6 w-6" /> Packed | Go to Pack
               </>

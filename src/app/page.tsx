@@ -4,13 +4,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import Header from '@/components/Header';
 import ProductGrid from '@/components/ProductGrid';
-import { loadProductsFromFirestore } from '@/data/products'; // Updated import
+import { loadProductsFromFirestore } from '@/data/products';
 import type { Product, OrderItem, ProductCategory, ProductCategorySlug } from '@/lib/types';
 import FloatingCheckoutBar from '@/components/FloatingCheckoutBar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { cn } from '@/lib/utils';
-import { Skeleton } from '@/components/ui/skeleton'; // For loading state
+import { Skeleton } from '@/components/ui/skeleton';
+
+// export const revalidate = 0; // Removed: 'revalidate' is a server-side config
 
 const categories: ProductCategory[] = [
   { name: "✨ All Items", slug: "all" as ProductCategorySlug },
@@ -55,11 +57,11 @@ export default function HomePage() {
       setError(null);
       try {
         const products = await loadProductsFromFirestore();
-        setAllProducts(products);
+        setAllProducts(products || []);
       } catch (err) {
         console.error("Failed to fetch products:", err);
         setError("Failed to load products. Please try again later.");
-        setAllProducts([]); // Set to empty array on error
+        setAllProducts([]); 
       } finally {
         setIsLoading(false);
       }
@@ -69,22 +71,25 @@ export default function HomePage() {
 
   useEffect(() => {
     if (selectedCategory === "all") {
-      setFilteredProducts(allProducts);
+      setFilteredProducts(allProducts || []);
     } else {
-      setFilteredProducts(allProducts.filter(product => product.category === selectedCategory));
+      setFilteredProducts((allProducts || []).filter(product => product.category === selectedCategory));
     }
   }, [selectedCategory, allProducts]);
 
 
   const handleToggleTrayItem = useCallback((product: Product) => {
+    if (!product || product.status === 'out-of-stock') {
+      return;
+    }
     setTrayItems(prevItems => {
-      const existingItemIndex = prevItems.findIndex(item => item.productId === product.id);
+      const existingItemIndex = (prevItems || []).findIndex(item => item.productId === product.id);
       let updatedItems;
 
       if (existingItemIndex > -1) {
-        updatedItems = prevItems.filter(item => item.productId !== product.id);
+        updatedItems = (prevItems || []).filter(item => item.productId !== product.id);
       } else {
-        updatedItems = [...prevItems, { productId: product.id, name: product.name, price: product.price, quantity: 1 }];
+        updatedItems = [...(prevItems || []), { productId: product.id, name: product.name, price: product.price, quantity: 1 }];
       }
       
       if (typeof window !== 'undefined') {
@@ -144,18 +149,18 @@ export default function HomePage() {
         {!isLoading && error && (
           <p className="text-center text-destructive py-10">{error}</p>
         )}
-        {!isLoading && !error && filteredProducts.length === 0 && (
+        {!isLoading && !error && (filteredProducts || []).length === 0 && (
            <p className="text-center text-muted-foreground py-10">No products found for this category.</p>
         )}
-        {!isLoading && !error && filteredProducts.length > 0 && (
+        {!isLoading && !error && (filteredProducts || []).length > 0 && (
           <ProductGrid 
-            products={filteredProducts} 
+            products={filteredProducts || []} 
             onToggleItemInList={handleToggleTrayItem} 
-            trayItems={trayItems} 
+            trayItems={trayItems || []} 
           />
         )}
       </main>
-      <FloatingCheckoutBar trayItems={trayItems} onClearTray={handleClearTray} />
+      <FloatingCheckoutBar trayItems={trayItems || []} onClearTray={handleClearTray} />
       <footer className="bg-muted text-center py-4 text-sm text-muted-foreground border-t">
         {currentYear !== null ? (
           <p>&copy; {currentYear} Good2Go Express. All rights reserved.</p>
