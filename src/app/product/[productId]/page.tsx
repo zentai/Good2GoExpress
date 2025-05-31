@@ -47,7 +47,7 @@ export default function ProductDetailPage() {
           const fetchedProduct = await loadProductByIdFromFirestore(productId);
           setProduct(fetchedProduct);
         } catch (err) {
-          console.error(\`Failed to fetch product \${productId}:\`, err);
+          console.error("Failed to fetch product ${productId}:", err);
           setError("Failed to load product details.");
         } finally {
           setIsLoading(false);
