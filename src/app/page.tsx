@@ -12,8 +12,6 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
-// export const revalidate = 0; // Removed: 'revalidate' is a server-side config
-
 const categories: ProductCategory[] = [
   { name: "✨ All Items", slug: "all" as ProductCategorySlug },
   { name: "🍿 Snack Attack", slug: "snack-attack" },

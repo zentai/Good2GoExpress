@@ -14,8 +14,6 @@ import { X, Plus, ChevronLeft, ChevronRight as ChevronRightIcon, ImageOff, Shopp
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
-// export const revalidate = 0; // Removed: 'revalidate' is a server-side config
-
 const getProductIndexById = (id: string, products: Product[]): number => {
   return products.findIndex(p => p.id === id);
 };
@@ -338,7 +336,7 @@ function SwipeViewContent() {
                           "h-2 w-2 rounded-full transition-all duration-300",
                           currentImageIndex === index ? "bg-white scale-125" : "bg-white/50 hover:bg-white/75"
                         )}
-                        aria-label={`Go to image ${index + 1}`}
+                        aria-label={`Go to image \${index + 1}`}
                       />
                     ))}
                   </div>
@@ -476,3 +474,5 @@ export default function SwipeViewPage() {
     </Suspense>
   );
 }
+
+    

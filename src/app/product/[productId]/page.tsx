@@ -12,8 +12,6 @@ import { ArrowLeft, Heart, PlusCircle, CheckCircle, ShoppingBag, ImageOff, Alert
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
-// export const revalidate = 0; // Removed: 'revalidate' is a server-side config
-
 export default function ProductDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -49,7 +47,7 @@ export default function ProductDetailPage() {
           const fetchedProduct = await loadProductByIdFromFirestore(productId);
           setProduct(fetchedProduct);
         } catch (err) {
-          console.error(`Failed to fetch product ${productId}:`, err);
+          console.error(\`Failed to fetch product \${productId}:\`, err);
           setError("Failed to load product details.");
         } finally {
           setIsLoading(false);
